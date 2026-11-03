@@ -349,7 +349,69 @@ Test yang tersedia:
 
 ---
 
-## 8. Batasan yang Ditegakkan
+## 8. Kontribusi (untuk anggota kelompok)
+
+### Anggota Kelompok 5
+
+| Nama | NIM |
+|---|---|
+| Nabilah Aulia Zahra | 2404130099 |
+| Rahma Pratiwi | 2404130055 |
+| Luhur Pangaribowo H | 2404130093 |
+| Adinda Anisa Rizkyani Santoso | 2404130133 |
+| Hilal Iqbaal Tawakal | 2404130166 |
+
+Program studi Teknik Informatika, FMIPA, Universitas Negeri Semarang.
+
+### Alur kerja bersama
+
+1. **Clone** repositori:
+
+   ```bash
+   git clone https://github.com/Luuhhuurr/SeduhPoin.git
+   cd SeduhPoin
+   ```
+
+2. **Siapkan lingkungan** (lihat [Bagian 1](#1-setup-dari-nol)): jalankan MySQL XAMPP,
+   import `schema.sql`, lalu salin `.env.example` menjadi `.env` dan sesuaikan
+   `DB_DSN` dengan setting MySQL lokal Anda.
+
+   > **Penting:** file `.env` **tidak** ikut masuk ke repositori (sudah masuk
+   > `.gitignore`) karena berisi data akses database. Setiap anggota membuat
+   > `.env` sendiri.
+
+3. **Jalankan aplikasi:**
+
+   ```bash
+   go mod tidy
+   go run .
+   ```
+
+4. **Kirim perubahan** lewat *pull request* agar bisa direview classmates:
+
+   ```bash
+   git pull                      # ambil perubahan terbaru
+   git checkout -b fitur/nama    # buat branch baru
+   # ... ubah kode ...
+   go build ./... && go test ./...   # pastikan lulus sebelum push
+   git commit -am "deskripsi perubahan"
+   git push origin fitur/nama
+   ```
+
+   Lalu buka **Pull request** di halaman GitHub repositori.
+
+### Aturan main bersama
+
+* **Selalu** jalankan `go build ./...` dan `go test ./...` sebelum push.
+* **Jangan** mengubah `internal/calc` secara semantik tanpa menambah/memperbarui
+  unit test di `internal/calc/calc_test.go` — aturan bisnis di sana adalah
+  acuan semua anggota.
+* Format kode dijaga dengan `gofmt -l .` (hasilnya harus kosong).
+* Jangan pernah commit `.env`, file `*.exe`, atau kredensial apa pun.
+
+---
+
+## 9. Batasan yang Ditegakkan
 
 * Tidak memakai framework web (Gin/Echo/Fiber/Beego).
 * Tidak memakai ORM (GORM atau lainnya); seluruh akses database memakai `database/sql`
