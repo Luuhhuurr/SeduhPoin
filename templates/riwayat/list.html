@@ -1,0 +1,86 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Riwayat Transaksi</h1>
+  <p class="deskripsi">
+    Daftar seluruh transaksi. Filter tanggal dan cabang bersifat opsional
+    (kosong berarti menampilkan semua data).
+  </p>
+
+  {{if .Data.Sukses}}<div class="pesan pesan-sukses">{{.Data.Sukses}}</div>{{end}}
+  {{if .Error}}<div class="pesan pesan-error">{{.Error}}</div>{{end}}
+
+  <div class="formulir luas" style="margin-bottom:18px">
+    <form method="get" action="/riwayat" class="filter-grid">
+      <div class="baris-form">
+        <label for="dari">Dari Tanggal</label>
+        <input type="date" id="dari" name="dari" value="{{.Data.Dari}}">
+      </div>
+      <div class="baris-form">
+        <label for="sampai">Sampai Tanggal</label>
+        <input type="date" id="sampai" name="sampai" value="{{.Data.Sampai}}">
+      </div>
+      <div class="baris-form">
+        <label for="cabang_id">Cabang</label>
+        <select id="cabang_id" name="cabang_id">
+          <option value="0">-- semua cabang --</option>
+          {{range .Data.Cabang}}
+          <option value="{{.ID}}" {{if eq $.Data.CabangID .ID}}selected{{end}}>{{.Kode}} - {{.Nama}}</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="baris-form">
+        <button type="submit" class="tombol" style="width:100%">Tampilkan</button>
+      </div>
+      <div class="baris-form">
+        <a href="/riwayat" class="tombol tombol-abu" style="width:100%">Reset</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Tanggal</th>
+          <th>Cabang</th>
+          <th>Member</th>
+          <th>Status</th>
+          <th class="kanan">Total Bayar</th>
+          <th class="kanan">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Transaksi}}
+        <tr>
+          <td><a href="/riwayat/{{.ID}}"><b>{{.Kode}}</b></a></td>
+          <td>{{tanggal .TanggalTransaksi}}</td>
+          <td>{{.CabangNama}}</td>
+          <td>
+            {{if .MemberNama}}
+              {{.MemberNama}} <span class="petunjuk">({{.MemberNoHP}})</span>
+            {{else}}
+              <span class="petunjuk">Tanpa member</span>
+            {{end}}
+          </td>
+          <td>{{statusBadge .Status}}</td>
+          <td class="kanan">{{rupiah .TotalBayar}}</td>
+          <td class="kanan"><a href="/riwayat/{{.ID}}" class="tautan-aksi">detail</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="kosong">Tidak ada transaksi pada filter ini.</td></tr>
+        {{end}}
+      </tbody>
+      {{if .Data.Transaksi}}
+      <tfoot>
+        <tr>
+          <td colspan="5">Total pada filter ini ({{len .Data.Transaksi}} transaksi)</td>
+          <td class="kanan">{{rupiah .Data.Total}}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+      {{end}}
+    </table>
+  </div>
+</div>
+{{end}}

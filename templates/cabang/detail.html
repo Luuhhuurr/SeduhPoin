@@ -1,0 +1,25 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{.Data.Cabang.Nama}}</h1>
+  <p class="deskripsi">Rincian data cabang (kode {{.Data.Cabang.Kode}}).</p>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <tbody>
+        <tr><th style="width:200px">Kode</th><td>{{.Data.Cabang.Kode}}</td></tr>
+        <tr><th>Nama</th><td>{{.Data.Cabang.Nama}}</td></tr>
+        <tr><th>Alamat</th><td>{{.Data.Cabang.Alamat}}</td></tr>
+        <tr><th>Telepon</th><td>{{.Data.Cabang.Telepon}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tombol-aksi">
+    <a href="/cabang/{{.Data.Cabang.ID}}/edit" class="tombol">Ubah Data</a>
+    <form method="post" action="/cabang/{{.Data.Cabang.ID}}/hapus" onsubmit="return confirm('Hapus cabang ini? Data transaksi lama tetap tersimpan.')">
+      <button type="submit" class="tombol tombol-batal">Hapus</button>
+    </form>
+    <a href="/cabang" class="tombol tombol-abu">Kembali ke Daftar</a>
+  </div>
+</div>
+{{end}}

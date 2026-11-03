@@ -1,0 +1,90 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Promo &amp; Voucher</h1>
+  <p class="deskripsi">Empat jenis promo: diskon produk, potongan minimal belanja, beli 2 gratis 1, dan voucher berkode. Promo yang sudah pernah dipakai hanya dapat dinonaktifkan.</p>
+
+  <div class="baris-alat">
+    <form method="get" action="/promo" class="grup-alat">
+      <input class="cari" type="text" name="q" value="{{.Data.Keyword}}" placeholder="Cari kode atau nama promo">
+      <select class="pilih-alat" name="jenis">
+        <option value="">Semua Jenis</option>
+        <option value="DISKON_PRODUK" {{if eq .Data.Jenis "DISKON_PRODUK"}}selected{{end}}>Diskon Produk</option>
+        <option value="POTONGAN_MIN_BELANJA" {{if eq .Data.Jenis "POTONGAN_MIN_BELANJA"}}selected{{end}}>Potongan Min. Belanja</option>
+        <option value="B2G1" {{if eq .Data.Jenis "B2G1"}}selected{{end}}>Beli 2 Gratis 1</option>
+        <option value="VOUCHER" {{if eq .Data.Jenis "VOUCHER"}}selected{{end}}>Voucher</option>
+      </select>
+      <button type="submit" class="tombol">Cari</button>
+    </form>
+    <a href="/promo/tambah" class="tombol tombol-krem">+ Tambah Promo</a>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Nama</th>
+          <th>Jenis</th>
+          <th>Periode</th>
+          <th>Status</th>
+          <th class="kanan">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Daftar}}
+        <tr>
+          <td><b>{{.Kode}}</b></td>
+          <td><a href="/promo/{{.ID}}">{{.Nama}}</a></td>
+          <td><span class="badge badge-info">{{.Jenis}}</span></td>
+          <td>
+            {{tanggalSingkat .TglMulai}} s/d {{tanggalSingkat .TglSelesai}}
+            {{if .JamMulai}}<br><span class="petunjuk">{{.JamMulai}} - {{.JamSelesai}}</span>{{end}}
+          </td>
+          <td>
+            {{if .Aktif}}
+              <span class="badge badge-ok">Aktif</span>
+            {{else}}
+              <span class="badge badge-grey">Nonaktif</span>
+            {{end}}
+          </td>
+          <td class="kanan">
+            <span class="aksi">
+              <a href="/promo/{{.ID}}" class="tautan-aksi">detail</a>
+              <a href="/promo/{{.ID}}/edit" class="tautan-aksi">ubah</a>
+            </span>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="kosong">Belum ada data promo.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="judul-bagian">Daftar Voucher</h2>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode Voucher</th>
+          <th class="kanan">Kuota</th>
+          <th class="kanan">Terpakai</th>
+          <th class="kanan">Sisa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Voucher}}
+        <tr>
+          <td><b>{{.Kode}}</b></td>
+          <td class="kanan">{{.Kuota}}</td>
+          <td class="kanan">{{.Terpakai}}</td>
+          <td class="kanan">{{sisaKuota .Kuota .Terpakai}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="kosong">Belum ada voucher.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

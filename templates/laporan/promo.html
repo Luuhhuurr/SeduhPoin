@@ -1,0 +1,107 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Laporan Biaya Promo</h1>
+  <p class="deskripsi">
+    Biaya promo dihitung dari transaksi berstatus <b>SELESAI</b> saja.
+    Transaksi yang dibatalkan tidak dihitung. Biaya penukaran poin
+    (poin x Rp1.000) dilaporkan pada kolom terpisah dari total potongan promo.
+  </p>
+
+  <div class="formulir luas" style="margin-bottom:18px">
+    <form method="get" action="/laporan/promo" class="filter-grid">
+      <div class="baris-form">
+        <label for="dari">Dari Tanggal</label>
+        <input type="date" id="dari" name="dari" value="{{.Data.Dari}}">
+      </div>
+      <div class="baris-form">
+        <label for="sampai">Sampai Tanggal</label>
+        <input type="date" id="sampai" name="sampai" value="{{.Data.Sampai}}">
+      </div>
+      <div class="baris-form">
+        <label for="cabang_id">Cabang</label>
+        <select id="cabang_id" name="cabang_id">
+          <option value="0">-- semua cabang --</option>
+          {{range .Data.Cabang}}
+          <option value="{{.ID}}" {{if eq $.Data.CabangID .ID}}selected{{end}}>{{.Kode}} - {{.Nama}}</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="baris-form">
+        <button type="submit" class="tombol" style="width:100%">Tampilkan</button>
+      </div>
+      <div class="baris-form">
+        <a href="/laporan/promo" class="tombol tombol-abu" style="width:100%">Reset</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="grid-kartu" style="margin-bottom:18px">
+    <div class="laporan-kartu">
+      <p class="label">Total Biaya Promo</p>
+      <p class="nilai">{{rupiah .Data.Laporan.TotalPotongan}}</p>
+      <p class="ket">akumulasi seluruh potongan promo pada periode ini</p>
+    </div>
+    <div class="laporan-kartu" style="border-top-color:var(--info)">
+      <p class="label">Biaya Tukar Poin</p>
+      <p class="nilai">{{rupiah .Data.Laporan.TotalBiayaTukarPoin}}</p>
+      <p class="ket">kolom terpisah &mdash; poin x Rp1.000</p>
+    </div>
+    <div class="laporan-kartu" style="border-top-color:var(--ok)">
+      <p class="label">Total Biaya Keseluruhan</p>
+      <p class="nilai">{{rupiah .Data.Laporan.TotalBiayaKeseluruhan}}</p>
+      <p class="ket">{{.Data.Laporan.JumlahTransaksi}} transaksi</p>
+    </div>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Promo</th>
+          <th>Jenis</th>
+          <th class="kanan">Jumlah Transaksi</th>
+          <th class="kanan">Total Potongan</th>
+          <th class="kanan">Sisa Kuota Voucher</th>
+          <th class="kanan">Biaya Tukar Poin</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Laporan.Baris}}
+        <tr>
+          <td><b>{{.NamaPromo}}</b></td>
+          <td><span class="badge badge-info">{{.Jenis}}</span></td>
+          <td class="kanan">{{.JumlahTransaksi}}</td>
+          <td class="kanan">{{rupiah .TotalPotongan}}</td>
+          <td class="kanan">
+            {{if eq .Jenis "VOUCHER"}}
+              {{.SisaKuota}} <span class="petunjuk">(dari {{.KuotaVoucher}})</span>
+            {{else}}
+              <span class="petunjuk">-</span>
+            {{end}}
+          </td>
+          <td class="kanan">{{rupiah .BiayaTukarPoin}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="kosong">Tidak ada promo yang digunakan pada periode ini.</td></tr>
+        {{end}}
+      </tbody>
+      {{if .Data.Laporan.Baris}}
+      <tfoot>
+        <tr>
+          <th colspan="3">Total</th>
+          <th class="kanan">{{rupiah .Data.Laporan.TotalPotongan}}</th>
+          <th class="kanan">-</th>
+          <th class="kanan">{{rupiah .Data.Laporan.TotalBiayaTukarPoin}}</th>
+        </tr>
+      </tfoot>
+      {{end}}
+    </table>
+  </div>
+
+  <p class="deskripsi" style="margin-top:14px">
+    Kolom "Biaya Tukar Poin" menampilkan nilai poin yang ditukar pada transaksi
+    yang memakai promo tersebut (poin x Rp1.000). Bila satu transaksi memakai
+    beberapa promo, biaya tukar poin tidak dihitung dua kali.
+  </p>
+</div>
+{{end}}

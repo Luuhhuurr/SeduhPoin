@@ -1,0 +1,30 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{if eq .Data.Mode "edit"}}Ubah Cabang{{else}}Tambah Cabang{{end}}</h1>
+  <p class="deskripsi">Isi data cabang. Kode cabang harus unik.</p>
+
+  <form method="post" action="{{if eq .Data.Mode "edit"}}/cabang/{{.Data.Cabang.ID}}/edit{{else}}/cabang/tambah{{end}}" class="formulir">
+    <div class="baris-form">
+      <label for="kode">Kode Cabang <span class="wajib">*</span></label>
+      <input type="text" id="kode" name="kode" value="{{.Data.Cabang.Kode}}" maxlength="20" required>
+      <p class="petunjuk">Contoh: C01</p>
+    </div>
+    <div class="baris-form">
+      <label for="nama">Nama Cabang <span class="wajib">*</span></label>
+      <input type="text" id="nama" name="nama" value="{{.Data.Cabang.Nama}}" maxlength="100" required>
+    </div>
+    <div class="baris-form">
+      <label for="alamat">Alamat</label>
+      <textarea id="alamat" name="alamat" rows="2">{{.Data.Cabang.Alamat}}</textarea>
+    </div>
+    <div class="baris-form">
+      <label for="telepon">Telepon</label>
+      <input type="text" id="telepon" name="telepon" value="{{.Data.Cabang.Telepon}}" maxlength="30">
+    </div>
+    <div class="tombol-aksi">
+      <button type="submit">Simpan</button>
+      <a href="/cabang" class="tombol tombol-abu">Batal</a>
+    </div>
+  </form>
+</div>
+{{end}}

@@ -1,0 +1,36 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{if eq .Data.Mode "edit"}}Ubah Produk{{else}}Tambah Produk{{end}}</h1>
+  <p class="deskripsi">Harga ditulis sebagai bilangan bulat rupiah tanpa pemisah ribuan.</p>
+
+  <form method="post" action="{{if eq .Data.Mode "edit"}}/produk/{{.Data.Produk.ID}}/edit{{else}}/produk/tambah{{end}}" class="formulir">
+    <div class="dua-kolom">
+      <div class="baris-form">
+        <label for="kode">Kode Produk <span class="wajib">*</span></label>
+        <input type="text" id="kode" name="kode" value="{{.Data.Produk.Kode}}" maxlength="20" required>
+        <p class="petunjuk">Contoh: P01</p>
+      </div>
+      <div class="baris-form">
+        <label for="kategori">Kategori <span class="wajib">*</span></label>
+        <input type="text" id="kategori" name="kategori" value="{{.Data.Produk.Kategori}}" list="daftar-kategori" maxlength="50" required>
+        <datalist id="daftar-kategori">
+          {{range .Data.Kategori}}<option value="{{.}}"></option>{{end}}
+        </datalist>
+      </div>
+    </div>
+    <div class="baris-form">
+      <label for="nama">Nama Produk <span class="wajib">*</span></label>
+      <input type="text" id="nama" name="nama" value="{{.Data.Produk.Nama}}" maxlength="100" required>
+    </div>
+    <div class="baris-form">
+      <label for="harga">Harga (Rp) <span class="wajib">*</span></label>
+      <input type="number" id="harga" name="harga" value="{{.Data.Produk.Harga}}" min="1" step="1" required>
+      <p class="petunjuk">Harus lebih besar dari 0.</p>
+    </div>
+    <div class="tombol-aksi">
+      <button type="submit">Simpan</button>
+      <a href="/produk" class="tombol tombol-abu">Batal</a>
+    </div>
+  </form>
+</div>
+{{end}}

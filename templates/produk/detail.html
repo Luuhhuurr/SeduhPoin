@@ -1,0 +1,25 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{.Data.Produk.Nama}}</h1>
+  <p class="deskripsi">Rincian produk (kode {{.Data.Produk.Kode}}).</p>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <tbody>
+        <tr><th style="width:200px">Kode</th><td>{{.Data.Produk.Kode}}</td></tr>
+        <tr><th>Nama</th><td>{{.Data.Produk.Nama}}</td></tr>
+        <tr><th>Kategori</th><td>{{.Data.Produk.Kategori}}</td></tr>
+        <tr><th>Harga</th><td>{{rupiah .Data.Produk.Harga}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tombol-aksi">
+    <a href="/produk/{{.Data.Produk.ID}}/edit" class="tombol">Ubah Data</a>
+    <form method="post" action="/produk/{{.Data.Produk.ID}}/hapus" onsubmit="return confirm('Hapus produk ini? Transaksi lama tetap menampilkan nama produk ini.')">
+      <button type="submit" class="tombol tombol-batal">Hapus</button>
+    </form>
+    <a href="/produk" class="tombol tombol-abu">Kembali ke Daftar</a>
+  </div>
+</div>
+{{end}}

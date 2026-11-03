@@ -1,0 +1,97 @@
+{{define "content"}}
+<div class="halaman">
+  <div class="hero">
+    <div>
+      <h1 class="hero-judul">Selamat datang di SeduhPoin</h1>
+      <p class="hero-sub">Sistem Point of Sale dan program loyalitas Kedai Kopi Seduh. Kelola transaksi, promo, dan poin member dari satu tempat.</p>
+    </div>
+    <div class="hero-aksi">
+      <a href="/transaksi" class="tombol tombol-krem">+ Transaksi Baru</a>
+      <a href="/riwayat" class="tombol tombol-abu">Lihat Riwayat</a>
+    </div>
+  </div>
+
+  <div class="grid-kartu">
+    <div class="kartu">
+      <div class="kartu-ikon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+      </div>
+      <p class="kartu-judul">Cabang</p>
+      <p class="kartu-nilai">{{.Data.JumlahCabang}}</p>
+      <a href="/cabang" class="kartu-tautan">Kelola cabang &rarr;</a>
+    </div>
+    <div class="kartu">
+      <div class="kartu-ikon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 9h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M7 2v3M11 2v3"/></svg>
+      </div>
+      <p class="kartu-judul">Produk Aktif</p>
+      <p class="kartu-nilai">{{.Data.JumlahProduk}}</p>
+      <a href="/produk" class="kartu-tautan">Kelola produk &rarr;</a>
+    </div>
+    <div class="kartu">
+      <div class="kartu-ikon biru">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-2a4 4 0 0 0-3-3.85"/></svg>
+      </div>
+      <p class="kartu-judul">Member Terdaftar</p>
+      <p class="kartu-nilai">{{.Data.JumlahMember}}</p>
+      <a href="/member" class="kartu-tautan">Kelola member &rarr;</a>
+    </div>
+    <div class="kartu">
+      <div class="kartu-ikon hijau">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12l2 5H4z"/><path d="M4 7v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/><path d="M9 11a3 3 0 0 0 6 0"/></svg>
+      </div>
+      <p class="kartu-judul">Transaksi Hari Ini</p>
+      <p class="kartu-nilai">{{.Data.JumlahTransaksiHariIni}}</p>
+      <a href="/riwayat" class="kartu-tautan">Lihat riwayat &rarr;</a>
+    </div>
+    <div class="kartu">
+      <div class="kartu-ikon hijau">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 6.5c0-1.7-2.2-3-5-3S7 4.8 7 6.5 9.2 9.5 12 9.5s5 1.3 5 3-2.2 3-5 3-5-1.3-5-3"/></svg>
+      </div>
+      <p class="kartu-judul">Omzet Hari Ini</p>
+      <p class="kartu-nilai kecil">{{rupiah .Data.OmzetHariIni}}</p>
+      <a href="/laporan/promo" class="kartu-tautan">Lihat laporan &rarr;</a>
+    </div>
+    <div class="kartu">
+      <div class="kartu-ikon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8l2.6 5.4 5.9.85-4.25 4.15 1 5.9L12 16.4l-5.25 2.7 1-5.9L3.5 9.05l5.9-.85z"/></svg>
+      </div>
+      <p class="kartu-judul">Member Gold / Silver</p>
+      <p class="kartu-nilai kecil">{{.Data.JumlahGold}} / {{.Data.JumlahSilver}}</p>
+      <a href="/laporan/tingkat" class="kartu-tautan">Rincian tingkat &rarr;</a>
+    </div>
+  </div>
+
+  <h2 class="judul-bagian">Transaksi Terakhir</h2>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Waktu</th>
+          <th>Cabang</th>
+          <th>Member</th>
+          <th class="kanan">Total Bayar</th>
+          <th>Status</th>
+          <th class="kanan">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.TransaksiTerakhir}}
+        <tr>
+          <td><b>{{.Kode}}</b></td>
+          <td>{{tanggal .TanggalTransaksi}}</td>
+          <td>{{.CabangNama}}</td>
+          <td>{{.MemberNama}}</td>
+          <td class="kanan">{{rupiah .TotalBayar}}</td>
+          <td><span class="{{statusBadge .Status}}">{{.Status}}</span></td>
+          <td class="kanan"><a href="/riwayat/{{.ID}}" class="tautan-aksi">detail</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="kosong">Belum ada transaksi. Mulai dengan membuat transaksi baru.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

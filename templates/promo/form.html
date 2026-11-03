@@ -1,0 +1,166 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{if eq .Data.Mode "edit"}}Ubah Promo{{else}}Tambah Promo{{end}}</h1>
+  <p class="deskripsi">Atur jenis promo, masa berlaku, cabang tujuan, dan jam berlaku. Kosongkan cabang dan jam bila berlaku untuk semua.</p>
+
+  <form method="post" action="{{if eq .Data.Mode "edit"}}/promo/{{.Data.Promo.ID}}/edit{{else}}/promo/tambah{{end}}" class="formulir">
+    <div class="dua-kolom">
+      <div class="baris-form">
+        <label for="kode">Kode Promo <span class="wajib">*</span></label>
+        <input type="text" id="kode" name="kode" value="{{.Data.Promo.Kode}}" maxlength="30" required>
+      </div>
+      <div class="baris-form">
+        <label for="jenis">Jenis Promo <span class="wajib">*</span></label>
+        <select id="jenis" name="jenis" required>
+          <option value="DISKON_PRODUK" {{if eq .Data.Promo.Jenis "DISKON_PRODUK"}}selected{{end}}>Diskon Produk (%)</option>
+          <option value="POTONGAN_MIN_BELANJA" {{if eq .Data.Promo.Jenis "POTONGAN_MIN_BELANJA"}}selected{{end}}>Potongan Min. Belanja</option>
+          <option value="B2G1" {{if eq .Data.Promo.Jenis "B2G1"}}selected{{end}}>Beli 2 Gratis 1</option>
+          <option value="VOUCHER" {{if eq .Data.Promo.Jenis "VOUCHER"}}selected{{end}}>Voucher Berkode</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="baris-form">
+      <label for="nama">Nama Promo <span class="wajib">*</span></label>
+      <input type="text" id="nama" name="nama" value="{{.Data.Promo.Nama}}" maxlength="100" required>
+    </div>
+
+    <!-- Aturan khusus: diskon produk -->
+    <div class="bagian-promo" id="bagian-diskon">
+      <div class="baris-form">
+        <label for="nilai_persen">Diskon (%)</label>
+        <input type="number" id="nilai_persen" name="nilai_persen" value="{{.Data.Promo.NilaiPersen}}" min="1" max="100" step="1">
+        <p class="petunjuk">Berlaku untuk produk yang dipilih di bawah.</p>
+      </div>
+      <div class="baris-form">
+        <label>Produk yang mendapat diskon</label>
+        <div class="kotak-pilih">
+          {{range $produk := .Data.Produk}}
+          <label class="pilih-item">
+            <input type="checkbox" name="produk_ids" value="{{$produk.ID}}"
+              {{range $p := $.Data.Promo.DiskonProduk}}{{if eq $p.ProdukID $produk.ID}}checked{{end}}{{end}}>
+            {{$produk.Nama}} <span class="petunjuk">({{$produk.Kategori}}) {{rupiah $produk.Harga}}</span>
+          </label>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <!-- Aturan khusus: potongan minimal belanja -->
+    <div class="bagian-promo" id="bagian-potongan">
+      <div class="dua-kolom">
+        <div class="baris-form">
+          <label for="nilai_nominal">Potongan (Rp)</label>
+          <input type="number" id="nilai_nominal" name="nilai_nominal" value="{{.Data.Promo.NilaiNominal}}" min="1" step="1">
+        </div>
+        <div class="baris-form">
+          <label for="min_belanja">Minimal Belanja (Rp)</label>
+          <input type="number" id="min_belanja" name="min_belanja" value="{{.Data.Promo.MinBelanja}}" min="1" step="1">
+        </div>
+      </div>
+    </div>
+
+    <!-- Aturan khusus: beli 2 gratis 1 -->
+    <div class="bagian-promo" id="bagian-b2g1">
+      <div class="baris-form">
+        <label>Kategori promo</label>
+        <div class="kotak-pilih">
+          {{range $kategori := .Data.Kategori}}
+          <label class="pilih-item">
+            <input type="checkbox" name="kategori" value="{{$kategori}}"
+              {{range $k := $.Data.Promo.KategoriB2G1}}{{if eq $k $kategori}}checked{{end}}{{end}}>
+            {{$kategori}}
+          </label>
+          {{end}}
+        </div>
+        <p class="petunjuk">Setiap 3 unit dalam kategori, 1 unit termurah gratis.</p>
+      </div>
+    </div>
+
+    <!-- Aturan khusus: voucher -->
+    <div class="bagian-promo" id="bagian-voucher">
+      <div class="dua-kolom">
+        <div class="baris-form">
+          <label for="kode_voucher">Kode Voucher</label>
+          <input type="text" id="kode_voucher" name="kode_voucher" value="{{.Data.KodeVoucher}}" maxlength="30">
+          <p class="petunjuk">Kode unik yang diketik kasir saat transaksi. Contoh: SEDUH10K</p>
+        </div>
+        <div class="baris-form">
+          <label for="kuota">Kuota Voucher</label>
+          <input type="number" id="kuota" name="kuota" value="{{.Data.Kuota}}" min="1" step="1">
+          <p class="petunjuk">Jumlah maksimum pemakaian voucher.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="judul-bagian" style="font-size:15px">Masa Berlaku</h3>
+    <div class="dua-kolom">
+      <div class="baris-form">
+        <label for="tgl_mulai">Tanggal Mulai <span class="wajib">*</span></label>
+        <input type="date" id="tgl_mulai" name="tgl_mulai" value="{{.Data.Promo.TglMulai.Format "2006-01-02"}}" required>
+      </div>
+      <div class="baris-form">
+        <label for="tgl_selesai">Tanggal Selesai <span class="wajib">*</span></label>
+        <input type="date" id="tgl_selesai" name="tgl_selesai" value="{{.Data.Promo.TglSelesai.Format "2006-01-02"}}" required>
+      </div>
+    </div>
+    <div class="dua-kolom">
+      <div class="baris-form">
+        <label for="jam_mulai">Jam Mulai (opsional)</label>
+        <input type="time" id="jam_mulai" name="jam_mulai" value="{{.Data.Promo.JamMulai}}">
+        <p class="petunjuk">Kosong = sepanjang hari.</p>
+      </div>
+      <div class="baris-form">
+        <label for="jam_selesai">Jam Selesai (opsional)</label>
+        <input type="time" id="jam_selesai" name="jam_selesai" value="{{.Data.Promo.JamSelesai}}">
+      </div>
+    </div>
+
+    <div class="baris-form">
+      <label>Cabang tujuan (kosong = semua cabang)</label>
+      <div class="kotak-pilih">
+        {{range $cabang := .Data.Cabang}}
+        <label class="pilih-item">
+          <input type="checkbox" name="cabang_ids" value="{{$cabang.ID}}"
+            {{range $c := $.Data.Promo.CabangIDs}}{{if eq $c $cabang.ID}}checked{{end}}{{end}}>
+          {{$cabang.Kode}} - {{$cabang.Nama}}
+        </label>
+        {{end}}
+      </div>
+    </div>
+
+    <div class="baris-form">
+      <label class="pilih-item">
+        <input type="checkbox" name="aktif" value="1" {{if .Data.Promo.Aktif}}checked{{end}}>
+        Promo aktif (dapat digunakan pada transaksi)
+      </label>
+    </div>
+
+    <div class="tombol-aksi">
+      <button type="submit">Simpan</button>
+      <a href="/promo" class="tombol tombol-abu">Batal</a>
+    </div>
+  </form>
+
+  <script>
+    // Menampilkan hanya bagian aturan sesuai jenis promo yang dipilih.
+    (function () {
+      var select = document.getElementById('jenis');
+      var bagian = {
+        'DISKON_PRODUK': 'bagian-diskon',
+        'POTONGAN_MIN_BELANJA': 'bagian-potongan',
+        'B2G1': 'bagian-b2g1',
+        'VOUCHER': 'bagian-voucher'
+      };
+      function perbarui() {
+        Object.keys(bagian).forEach(function (jenis) {
+          var elemen = document.getElementById(bagian[jenis]);
+          elemen.style.display = (select.value === jenis) ? 'block' : 'none';
+        });
+      }
+      select.addEventListener('change', perbarui);
+      perbarui();
+    })();
+  </script>
+</div>
+{{end}}

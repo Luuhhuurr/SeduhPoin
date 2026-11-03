@@ -1,0 +1,63 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Poin Member</h1>
+  <p class="deskripsi">
+    Saldo poin menampilkan lot berstatus AKTIF yang belum melewati tanggal kedaluwarsa
+    (perhitungan dilakukan on-the-fly pada {{tanggal .Data.HariIni}}).
+  </p>
+
+  <div class="grid-kartu" style="margin-bottom:18px">
+    <div class="kartu">
+      <div class="kartu-ikon biru">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-2a4 4 0 0 0-3-3.85"/></svg>
+      </div>
+      <p class="kartu-judul">Total Member</p>
+      <p class="kartu-nilai">{{len .Data.Baris}}</p>
+      <a href="/member" class="kartu-tautan">Kelola member &rarr;</a>
+    </div>
+    <div class="kartu">
+      <div class="kartu-ikon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8l2.6 5.4 5.9.85-4.25 4.15 1 5.9L12 16.4l-5.25 2.7 1-5.9L3.5 9.05l5.9-.85z"/></svg>
+      </div>
+      <p class="kartu-judul">Nilai Tukar</p>
+      <p class="kartu-nilai kecil">{{rupiah 1000}}</p>
+      <p class="kartu-tautan">per poin</p>
+    </div>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>No HP</th>
+          <th>Nama</th>
+          <th>Tingkat</th>
+          <th class="kanan">Saldo Poin Aktif</th>
+          <th class="kanan">Nilai Rupiah</th>
+          <th class="kanan">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Baris}}
+        <tr>
+          <td>{{.Member.NoHP}}</td>
+          <td><a href="/poin/{{.Member.ID}}">{{.Member.Nama}}</a></td>
+          <td>
+            {{if eq .Tingkat "GOLD"}}
+              <span class="badge badge-gold">GOLD</span>
+            {{else}}
+              <span class="badge badge-silver">SILVER</span>
+            {{end}}
+          </td>
+          <td class="kanan">{{.Saldo}} poin</td>
+          <td class="kanan">{{rupiah .NilaiRupiah}}</td>
+          <td class="kanan"><a href="/poin/{{.Member.ID}}" class="tautan-aksi">rincian</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="kosong">Belum ada member terdaftar.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,28 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{if eq .Data.Mode "edit"}}Ubah Member{{else}}Tambah Member{{end}}</h1>
+  <p class="deskripsi">Nomor HP wajib diisi dengan angka saja dan harus unik.</p>
+
+  <form method="post" action="{{if eq .Data.Mode "edit"}}/member/{{.Data.Member.ID}}/edit{{else}}/member/tambah{{end}}" class="formulir">
+    <div class="dua-kolom">
+      <div class="baris-form">
+        <label for="no_hp">Nomor HP <span class="wajib">*</span></label>
+        <input type="text" id="no_hp" name="no_hp" value="{{.Data.Member.NoHP}}" maxlength="20" pattern="[0-9]*" required>
+        <p class="petunjuk">Hanya angka, contoh: 081234567890</p>
+      </div>
+      <div class="baris-form">
+        <label for="tgl_daftar">Tanggal Daftar</label>
+        <input type="date" id="tgl_daftar" name="tgl_daftar" value="{{.Data.Member.TglDaftar.Format "2006-01-02"}}">
+      </div>
+    </div>
+    <div class="baris-form">
+      <label for="nama">Nama Member <span class="wajib">*</span></label>
+      <input type="text" id="nama" name="nama" value="{{.Data.Member.Nama}}" maxlength="100" required>
+    </div>
+    <div class="tombol-aksi">
+      <button type="submit">Simpan</button>
+      <a href="/member" class="tombol tombol-abu">Batal</a>
+    </div>
+  </form>
+</div>
+{{end}}

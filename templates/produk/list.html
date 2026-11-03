@@ -1,0 +1,52 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Katalog Produk</h1>
+  <p class="deskripsi">Produk yang dijual di seluruh cabang. Kategori dipakai untuk promo beli 2 gratis 1.</p>
+
+  <div class="baris-alat">
+    <form method="get" action="/produk" class="grup-alat">
+      <input class="cari" type="text" name="q" value="{{.Data.Keyword}}" placeholder="Cari kode atau nama produk">
+      <select class="pilih-alat" name="kategori">
+        <option value="">Semua Kategori</option>
+        {{range .Data.Kategori}}
+        <option value="{{.}}" {{if eq . $.Data.KategoriAktif}}selected{{end}}>{{.}}</option>
+        {{end}}
+      </select>
+      <button type="submit" class="tombol">Cari</button>
+    </form>
+    <a href="/produk/tambah" class="tombol tombol-krem">+ Tambah Produk</a>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Nama</th>
+          <th>Kategori</th>
+          <th class="kanan">Harga</th>
+          <th class="kanan">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Daftar}}
+        <tr>
+          <td><b>{{.Kode}}</b></td>
+          <td><a href="/produk/{{.ID}}">{{.Nama}}</a></td>
+          <td><span class="badge badge-aksen">{{.Kategori}}</span></td>
+          <td class="kanan">{{rupiah .Harga}}</td>
+          <td class="kanan">
+            <span class="aksi">
+              <a href="/produk/{{.ID}}" class="tautan-aksi">detail</a>
+              <a href="/produk/{{.ID}}/edit" class="tautan-aksi">ubah</a>
+            </span>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="kosong">Belum ada data produk.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

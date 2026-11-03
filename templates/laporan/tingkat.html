@@ -1,0 +1,62 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Laporan Member per Tingkat</h1>
+  <p class="deskripsi">
+    Jumlah member Silver dan Gold pada akhir setiap bulan. Tingkat dihitung dari
+    belanja 3 bulan sebelumnya (transaksi SELESAI, ambang Gold Rp1.500.000).
+    Member baru mengikuti tanggal pendaftaran (tgl_daftar) pada bulan tersebut.
+  </p>
+
+  <div class="formulir luas" style="margin-bottom:18px">
+    <form method="get" action="/laporan/tingkat" class="filter-grid">
+      <div class="baris-form">
+        <label for="dari">Dari Bulan</label>
+        <input type="date" id="dari" name="dari" value="{{.Data.Dari}}">
+      </div>
+      <div class="baris-form">
+        <label for="sampai">Sampai Bulan</label>
+        <input type="date" id="sampai" name="sampai" value="{{.Data.Sampai}}">
+      </div>
+      <div class="baris-form">
+        <button type="submit" class="tombol" style="width:100%">Tampilkan</button>
+      </div>
+      <div class="baris-form">
+        <a href="/laporan/tingkat" class="tombol tombol-abu" style="width:100%">Reset</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Bulan</th>
+          <th class="kanan">Member Silver</th>
+          <th class="kanan">Member Gold</th>
+          <th class="kanan">Total Member</th>
+          <th class="kanan">Member Baru</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Laporan.Baris}}
+        <tr>
+          <td><b>{{labelBulanPanjang .Bulan}}</b></td>
+          <td class="kanan">{{.Silver}}</td>
+          <td class="kanan">
+            {{if gt .Gold 0}}
+              <span class="badge badge-gold">{{.Gold}}</span>
+            {{else}}
+              {{.Gold}}
+            {{end}}
+          </td>
+          <td class="kanan">{{.TotalMember}}</td>
+          <td class="kanan">{{.MemberBaru}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="kosong">Tidak ada data pada periode ini.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,61 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Laporan Poin Berlaku</h1>
+  <p class="deskripsi">
+    Poin yang masih berlaku dihitung pada tanggal {{tanggal .Data.HariIni}}:
+    lot berstatus AKTIF, sisa poin positif, dan tanggal kadaluwarsa belum terlewati.
+    Nilai rupiah memakai nilai tukar 1 poin = Rp1.000.
+  </p>
+
+  <div class="grid-kartu" style="margin-bottom:18px">
+    <div class="laporan-kartu">
+      <p class="label">Total Poin Berlaku</p>
+      <p class="nilai">{{.Data.Laporan.TotalPoin}} poin</p>
+      <p class="ket">seluruh lot aktif yang belum kedaluwarsa</p>
+    </div>
+    <div class="laporan-kartu" style="border-top-color:var(--ok)">
+      <p class="label">Nilai Rupiah</p>
+      <p class="nilai">{{rupiah .Data.Laporan.TotalRupiah}}</p>
+      <p class="ket">dihitung dengan 1 poin = Rp1.000</p>
+    </div>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Bulan Kedaluwarsa</th>
+          <th class="kanan">Jumlah Lot</th>
+          <th class="kanan">Jumlah Member</th>
+          <th class="kanan">Jumlah Poin</th>
+          <th class="kanan">Nilai Rupiah</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Laporan.Baris}}
+        <tr>
+          <td><b>{{labelBulanPanjang .Bulan}}</b></td>
+          <td class="kanan">{{.JumlahLot}}</td>
+          <td class="kanan">{{.JumlahMember}}</td>
+          <td class="kanan">{{.JumlahPoin}} poin</td>
+          <td class="kanan">{{rupiah .NilaiRupiah}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="kosong">Tidak ada poin yang berlaku saat ini.</td></tr>
+        {{end}}
+      </tbody>
+      {{if .Data.Laporan.Baris}}
+      <tfoot>
+        <tr>
+          <th>Total</th>
+          <th class="kanan">-</th>
+          <th class="kanan">-</th>
+          <th class="kanan">{{.Data.Laporan.TotalPoin}} poin</th>
+          <th class="kanan">{{rupiah .Data.Laporan.TotalRupiah}}</th>
+        </tr>
+      </tfoot>
+      {{end}}
+    </table>
+  </div>
+</div>
+{{end}}

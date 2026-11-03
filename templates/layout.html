@@ -1,0 +1,25 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} &middot; SeduhPoin</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  {{template "header" .}}
+  <input type="checkbox" id="tombol-menu" class="menu-sembunyi">
+  <div class="bungkus">
+    {{template "sidebar" .}}
+    <main class="konten">
+      {{if .Error}}
+      <div class="pesan pesan-error">{{.Error}}</div>
+      {{end}}
+      {{template "content" .}}
+    </main>
+  </div>
+  {{template "footer" .}}
+</body>
+</html>
+{{end}}

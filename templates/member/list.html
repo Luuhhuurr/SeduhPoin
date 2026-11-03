@@ -1,0 +1,54 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Data Member</h1>
+  <p class="deskripsi">Hanya member terdaftar yang memperoleh dan menukar poin. Pencarian juga dapat dilakukan berdasarkan nomor HP.</p>
+
+  <div class="baris-alat">
+    <form method="get" action="/member" class="grup-alat">
+      <input class="cari" type="text" name="q" value="{{.Data.Keyword}}" placeholder="Cari nomor HP atau nama member">
+      <button type="submit" class="tombol">Cari</button>
+    </form>
+    <a href="/member/tambah" class="tombol tombol-krem">+ Tambah Member</a>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>No HP</th>
+          <th>Nama</th>
+          <th>Tgl Daftar</th>
+          <th>Tingkat</th>
+          <th class="kanan">Belanja 3 Bulan</th>
+          <th class="kanan">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Daftar}}
+        <tr>
+          <td>{{.Member.NoHP}}</td>
+          <td><a href="/member/{{.Member.ID}}">{{.Member.Nama}}</a></td>
+          <td>{{tanggalSingkat .Member.TglDaftar}}</td>
+          <td>
+            {{if eq .Tingkat "GOLD"}}
+              <span class="badge badge-gold">GOLD</span>
+            {{else}}
+              <span class="badge badge-silver">SILVER</span>
+            {{end}}
+          </td>
+          <td class="kanan">{{rupiah .Belanja}}</td>
+          <td class="kanan">
+            <span class="aksi">
+              <a href="/member/{{.Member.ID}}" class="tautan-aksi">detail</a>
+              <a href="/member/{{.Member.ID}}/edit" class="tautan-aksi">ubah</a>
+            </span>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="kosong">Belum ada member terdaftar.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

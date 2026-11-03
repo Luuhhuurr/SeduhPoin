@@ -1,0 +1,46 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Data Cabang</h1>
+  <p class="deskripsi">Daftar titik penjualan Kedai Kopi Seduh. Penghapusan menggunakan soft delete sehingga riwayat transaksi tetap utuh.</p>
+
+  <div class="baris-alat">
+    <form method="get" action="/cabang" class="grup-alat">
+      <input class="cari" type="text" name="q" value="{{.Data.Keyword}}" placeholder="Cari kode atau nama cabang">
+      <button type="submit" class="tombol">Cari</button>
+    </form>
+    <a href="/cabang/tambah" class="tombol tombol-krem">+ Tambah Cabang</a>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Nama</th>
+          <th>Alamat</th>
+          <th>Telepon</th>
+          <th class="kanan">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Daftar}}
+        <tr>
+          <td><b>{{.Kode}}</b></td>
+          <td><a href="/cabang/{{.ID}}">{{.Nama}}</a></td>
+          <td>{{.Alamat}}</td>
+          <td>{{.Telepon}}</td>
+          <td class="kanan">
+            <span class="aksi">
+              <a href="/cabang/{{.ID}}" class="tautan-aksi">detail</a>
+              <a href="/cabang/{{.ID}}/edit" class="tautan-aksi">ubah</a>
+            </span>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="kosong">Belum ada data cabang.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

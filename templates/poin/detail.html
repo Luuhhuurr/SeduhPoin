@@ -1,0 +1,130 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Poin {{.Data.Member.Nama}}</h1>
+  <p class="deskripsi">
+    Nomor HP {{.Data.Member.NoHP}} &middot; daftar lot poin dan riwayat mutasi poin member.
+  </p>
+
+  {{if .Data.Sukses}}<div class="pesan pesan-sukses">{{.Data.Sukses}}</div>{{end}}
+  {{if .Error}}<div class="pesan pesan-error">{{.Error}}</div>{{end}}
+
+  <div class="saldo-poin" style="margin-bottom:16px">
+    <div>
+      <div class="label">Saldo Poin Aktif</div>
+      <div class="angka-besar">{{.Data.Saldo}} poin</div>
+      <div class="ket">setara {{rupiah .Data.NilaiRupiah}}</div>
+    </div>
+    <div style="margin-left:auto;text-align:right">
+      <div class="label">Tingkat Saat Ini</div>
+      <div style="margin:8px 0 6px">
+        {{if eq .Data.Tingkat "GOLD"}}
+          <span class="badge badge-gold">GOLD</span>
+        {{else}}
+          <span class="badge badge-silver">SILVER</span>
+        {{end}}
+      </div>
+      <div class="ket">pengali poin x{{.Data.Pengali}}</div>
+    </div>
+  </div>
+
+  <div class="grid-kartu" style="margin-bottom:6px">
+    <div class="kartu">
+      <p class="kartu-judul">Belanja 3 Bulan</p>
+      <p class="kartu-nilai kecil">{{rupiah .Data.Belanja}}</p>
+      <p class="kartu-tautan">dasar perhitungan tingkat member</p>
+    </div>
+    <div class="kartu">
+      <p class="kartu-judul">Nilai Tukar</p>
+      <p class="kartu-nilai kecil">{{rupiah 1000}}</p>
+      <p class="kartu-tautan">per poin</p>
+    </div>
+    <div class="kartu">
+      <p class="kartu-judul">Jumlah Lot</p>
+      <p class="kartu-nilai kecil">{{len .Data.Lots}}</p>
+      <p class="kartu-tautan">lot poin tercatat</p>
+    </div>
+  </div>
+
+  <h2 class="judul-bagian">Lot Poin</h2>
+  <p class="deskripsi">
+    Poin ditukar dengan urutan FIFO: lot dengan tanggal kedaluarsa terdekat dipakai lebih dulu.
+  </p>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Diperoleh</th>
+          <th>Kadaluarsa</th>
+          <th class="kanan">Awal</th>
+          <th class="kanan">Sisa</th>
+          <th class="kanan">Nilai Sisa</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Lots}}
+        <tr>
+          <td>{{tanggalSingkat .TanggalDapat}}</td>
+          <td>{{tanggalSingkat .TanggalKedaluarsa}}</td>
+          <td class="kanan">{{.JumlahAwal}}</td>
+          <td class="kanan">{{.JumlahSisa}}</td>
+          <td class="kanan">{{nilaiPoin .JumlahSisa}}</td>
+          <td>
+            {{if eq .StatusEfektif "AKTIF"}}
+              <span class="badge badge-ok">AKTIF</span>
+            {{else if eq .StatusEfektif "DITARIK"}}
+              <span class="badge badge-batal">DITARIK</span>
+            {{else}}
+              <span class="badge badge-grey">KEDALUWARSA</span>
+            {{end}}
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="kosong">Belum ada lot poin untuk member ini.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="judul-bagian">Mutasi Poin</h2>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Waktu</th>
+          <th>Tipe</th>
+          <th class="kanan">Jumlah</th>
+          <th>Keterangan</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Mutasi}}
+        <tr>
+          <td>{{tanggal .CreatedAt}}</td>
+          <td>
+            {{if eq .Tipe "PEROLEHAN"}}
+              <span class="badge badge-ok">PEROLEHAN</span>
+            {{else if eq .Tipe "PENUKARAN"}}
+              <span class="badge badge-batal">PENUKARAN</span>
+            {{else if eq .Tipe "KEMBALI"}}
+              <span class="badge badge-silver">KEMBALI</span>
+            {{else}}
+              <span class="badge badge-grey">TARIK</span>
+            {{end}}
+          </td>
+          <td class="kanan">{{.Jumlah}}</td>
+          <td>{{.Keterangan}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="kosong">Belum ada mutasi poin.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tombol-aksi">
+    <a href="/poin" class="tombol tombol-abu">Kembali ke Daftar Poin</a>
+    <a href="/member/{{.Data.Member.ID}}" class="tombol tombol-abu">Data Member</a>
+  </div>
+</div>
+{{end}}

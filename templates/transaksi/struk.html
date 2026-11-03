@@ -1,0 +1,72 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Struk Transaksi</h1>
+  <p class="deskripsi">
+    {{if eq .Data.Transaksi.Status "BATAL"}}
+      Transaksi ini sudah <b>BATAL</b> dan tidak lagi dihitung dalam laporan.
+    {{else}}
+      Simpan struk ini sebagai bukti pembayaran.
+    {{end}}
+  </p>
+
+  <div style="display:flex;justify-content:center">
+  <div class="struk">
+    <div class="struk-kepala">
+      <h2>SeduhPoin</h2>
+      <p>Kedai Kopi Seduh &middot; {{.Data.Transaksi.CabangNama}}</p>
+      <p>No. Transaksi: {{.Data.Transaksi.Kode}}</p>
+      <p>Tanggal: {{tanggal .Data.Transaksi.TanggalTransaksi}} WIB</p>
+      {{if .Data.Transaksi.MemberNama}}
+        <p>Member: {{.Data.Transaksi.MemberNama}} ({{.Data.Transaksi.MemberNoHP}})</p>
+      {{end}}
+    </div>
+
+    <table class="tabel struk-tabel">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="kanan">Harga</th>
+          <th class="kanan">Jumlah</th>
+          <th class="kanan">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Transaksi.Items}}
+        <tr>
+          <td>
+            {{.NamaProduk}}
+            {{if .Potongan}}<br><span class="petunjuk">Potongan {{rupiah .Potongan}}</span>{{end}}
+          </td>
+          <td class="kanan">{{rupiah .Harga}}</td>
+          <td class="kanan">{{.Jumlah}}</td>
+          <td class="kanan">{{rupiah .Subtotal}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+
+    <div class="struk-total">
+      <div><span>Subtotal</span><span>{{rupiah .Data.Transaksi.Subtotal}}</span></div>
+      {{range .Data.Transaksi.Promos}}
+      <div><span>{{.NamaPromo}}</span><span>- {{rupiah .NilaiPotongan}}</span></div>
+      {{end}}
+      <div><span>Total Setelah Promo</span><span>{{rupiah .Data.Transaksi.TotalSetelahPromo}}</span></div>
+      <div>
+        <span>Tukar Poin ({{.Data.Transaksi.PoinDitukar}} poin)</span>
+        <span>- {{nilaiPoin .Data.Transaksi.PoinDitukar}}</span>
+      </div>
+      <div class="total-besar"><span>TOTAL BAYAR</span><span>{{rupiah .Data.Transaksi.TotalBayar}}</span></div>
+      {{if .Data.Transaksi.MemberNama}}
+      <div><span>Tingkat member</span><span>{{.Data.Transaksi.TingkatSaatTransaksi}}</span></div>
+      {{end}}
+    </div>
+  </div>
+  </div>
+
+  <div class="tombol-aksi" style="justify-content:center">
+    <button type="button" class="tombol" onclick="window.print()">Cetak Struk</button>
+    <a href="/transaksi" class="tombol tombol-abu">Transaksi Baru</a>
+    <a href="/riwayat/{{.Data.Transaksi.ID}}" class="tombol tombol-abu">Lihat di Riwayat</a>
+  </div>
+</div>
+{{end}}

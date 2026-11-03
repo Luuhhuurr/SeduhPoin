@@ -1,0 +1,36 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{.Data.Member.Nama}}</h1>
+  <p class="deskripsi">Rincian member (nomor HP {{.Data.Member.NoHP}}).</p>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <tbody>
+        <tr><th style="width:220px">Nomor HP</th><td>{{.Data.Member.NoHP}}</td></tr>
+        <tr><th>Nama</th><td>{{.Data.Member.Nama}}</td></tr>
+        <tr><th>Tanggal Daftar</th><td>{{tanggalSingkat .Data.Member.TglDaftar}}</td></tr>
+        <tr>
+          <th>Tingkat Saat Ini</th>
+          <td>
+            {{if eq .Data.Tingkat "GOLD"}}
+              <span class="badge badge-gold">GOLD</span>
+            {{else}}
+              <span class="badge badge-silver">SILVER</span>
+            {{end}}
+          </td>
+        </tr>
+        <tr><th>Belanja 3 Bulan Terakhir</th><td>{{rupiah .Data.Belanja}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tombol-aksi">
+    <a href="/poin/{{.Data.Member.ID}}" class="tombol">Lihat Poin</a>
+    <a href="/member/{{.Data.Member.ID}}/edit" class="tombol">Ubah Data</a>
+    <form method="post" action="/member/{{.Data.Member.ID}}/hapus" onsubmit="return confirm('Hapus member ini? Riwayat transaksi lama tetap tersimpan.')">
+      <button type="submit" class="tombol tombol-batal">Hapus</button>
+    </form>
+    <a href="/member" class="tombol tombol-abu">Kembali ke Daftar</a>
+  </div>
+</div>
+{{end}}

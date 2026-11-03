@@ -1,0 +1,84 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{.Data.Promo.Nama}}</h1>
+  <p class="deskripsi">Rincian promo (kode {{.Data.Promo.Kode}}).</p>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <tbody>
+        <tr><th style="width:220px">Kode Promo</th><td>{{.Data.Promo.Kode}}</td></tr>
+        <tr><th>Jenis</th><td>{{.Data.Promo.Jenis}}</td></tr>
+        <tr><th>Masa Berlaku</th><td>{{tanggalSingkat .Data.Promo.TglMulai}} s/d {{tanggalSingkat .Data.Promo.TglSelesai}}</td></tr>
+        <tr>
+          <th>Jam Berlaku</th>
+          <td>{{if .Data.Promo.JamMulai}}{{.Data.Promo.JamMulai}} - {{.Data.Promo.JamSelesai}}{{else}}Sepanjang hari{{end}}</td>
+        </tr>
+        <tr>
+          <th>Cabang Tujuan</th>
+          <td>
+            {{if .Data.Promo.CabangIDs}}
+              {{range .Data.Promo.CabangIDs}}Cabang {{.}}{{end}}
+            {{else}}
+              Semua cabang
+            {{end}}
+          </td>
+        </tr>
+        <tr>
+          <th>Status</th>
+          <td>
+            {{if .Data.Promo.Aktif}}
+              <span class="badge badge-ok">Aktif</span>
+            {{else}}
+              <span class="badge badge-grey">Nonaktif</span>
+            {{end}}
+          </td>
+        </tr>
+        {{if eq .Data.Promo.Jenis "DISKON_PRODUK"}}
+        <tr><th>Diskon</th><td>{{.Data.Promo.NilaiPersen}}%</td></tr>
+        <tr>
+          <th>Produk</th>
+          <td>
+            {{range .Data.Promo.DiskonProduk}}{{.Nama}} ({{.Persen}}%)<br>{{else}}&mdash;{{end}}
+          </td>
+        </tr>
+        {{end}}
+        {{if eq .Data.Promo.Jenis "POTONGAN_MIN_BELANJA"}}
+        <tr><th>Potongan</th><td>{{rupiah .Data.Promo.NilaiNominal}}</td></tr>
+        <tr><th>Minimal Belanja</th><td>{{rupiah .Data.Promo.MinBelanja}}</td></tr>
+        {{end}}
+        {{if eq .Data.Promo.Jenis "B2G1"}}
+        <tr>
+          <th>Kategori</th>
+          <td>{{range .Data.Promo.KategoriB2G1}}{{.}} {{end}}</td>
+        </tr>
+        {{end}}
+        {{if eq .Data.Promo.Jenis "VOUCHER"}}
+        <tr><th>Kuota Voucher</th><td>{{.Data.Promo.KuotaVoucher}}</td></tr>
+        <tr><th>Terpakai</th><td>{{.Data.Promo.Terpakai}}</td></tr>
+        <tr><th>Sisa Kuota</th><td>{{sisaKuota .Data.Promo.KuotaVoucher .Data.Promo.Terpakai}}</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  {{if .Data.Dipakai}}
+  <div class="pesan pesan-info">Promo ini sudah pernah dipakai, sehingga tidak dapat dihapus &mdash; hanya dapat dinonaktifkan.</div>
+  {{end}}
+
+  <div class="tombol-aksi">
+    <a href="/promo/{{.Data.Promo.ID}}/edit" class="tombol">Ubah Promo</a>
+    <form method="post" action="/promo/{{.Data.Promo.ID}}/status">
+      <input type="hidden" name="aktif" value="{{if .Data.Promo.Aktif}}0{{else}}1{{end}}">
+      <button type="submit" class="tombol tombol-abu">
+        {{if .Data.Promo.Aktif}}Nonaktifkan{{else}}Aktifkan{{end}}
+      </button>
+    </form>
+    {{if not .Data.Dipakai}}
+    <form method="post" action="/promo/{{.Data.Promo.ID}}/hapus" onsubmit="return confirm('Hapus promo ini?')">
+      <button type="submit" class="tombol tombol-batal">Hapus</button>
+    </form>
+    {{end}}
+    <a href="/promo" class="tombol tombol-abu">Kembali ke Daftar</a>
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,181 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Transaksi Baru</h1>
+  <p class="deskripsi">Pilih cabang, isi item, lalu tekan <b>Hitung</b> untuk melihat rincian promo dan poin sebelum menyimpan.</p>
+
+  <form method="post" action="/transaksi/proses">
+    <div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start" class="besar-kiri">
+      <div>
+        <div class="formulir luas">
+          <div class="dua-kolom">
+            <div class="baris-form">
+              <label for="cabang_id">Cabang</label>
+              <select id="cabang_id" name="cabang_id" required>
+                <option value="">-- pilih cabang --</option>
+                {{range .Data.Cabang}}
+                <option value="{{.ID}}" {{if eq $.Data.Form.CabangID .ID}}selected{{end}}>{{.Kode}} - {{.Nama}}</option>
+                {{end}}
+              </select>
+            </div>
+            <div class="baris-form">
+              <label for="no_hp">Nomor HP Member (opsional)</label>
+              <input type="text" id="no_hp" name="no_hp" value="{{$.Data.Form.NoHP}}" maxlength="20">
+              <p class="petunjuk">
+                Member terdaftar memperoleh dan dapat menukar poin.
+                <a href="/member/tambah?no_hp={{$.Data.Form.NoHP}}" target="_blank">Daftarkan member baru</a>
+              </p>
+            </div>
+          </div>
+
+          <div class="dua-kolom">
+            <div class="baris-form">
+              <label for="kode_voucher">Kode Voucher (opsional)</label>
+              <input type="text" id="kode_voucher" name="kode_voucher" value="{{$.Data.Form.KodeVoucher}}" maxlength="30">
+              <p class="petunjuk">Maksimal 1 voucher per transaksi. Voucher tidak dapat digabung dengan promo potongan minimal belanja.</p>
+            </div>
+            <div class="baris-form">
+              <label for="poin_tukar">Poin yang Ditukar</label>
+              <input type="number" id="poin_tukar" name="poin_tukar" value="{{$.Data.Form.PoinTukar}}" min="0" step="1">
+              <p class="petunjuk">
+                {{if .Data.Hasil}}
+                  Saldo aktif {{.Data.Hasil.SaldoPoin}} poin &middot; batas tukar {{.Data.Hasil.BatasTukarPoin}} poin
+                {{else}}
+                  Maksimal 50% dari total setelah promo.
+                {{end}}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="judul-bagian">Item Belanja</h2>
+        <div class="tabel-bungkus">
+          <table class="tabel">
+            <thead>
+              <tr>
+                <th>Produk</th>
+                <th style="width:130px">Jumlah</th>
+              </tr>
+            </thead>
+            <tbody id="daftar-item">
+              {{range $baris := .Data.Baris}}
+              <tr>
+                <td>
+                  <select name="produk_id">
+                    <option value="0">-- pilih produk --</option>
+                    {{range $produk := $.Data.Produk}}
+                    <option value="{{$produk.ID}}" {{if eq $baris.ProdukID $produk.ID}}selected{{end}}>
+                      {{$produk.Nama}} ({{$produk.Kategori}}) - {{rupiah $produk.Harga}}
+                    </option>
+                    {{end}}
+                  </select>
+                </td>
+                <td><input type="number" name="jumlah" value="{{$baris.Jumlah}}" min="0" step="1"></td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="tombol-aksi">
+          <button type="button" class="tombol tombol-abu" onclick="tambahBaris()">+ Tambah Baris</button>
+        </div>
+      </div>
+
+      <div>
+        <h2 class="judul-bagian" style="margin-top:0">Rincian Perhitungan</h2>
+
+        {{if .Data.Hasil}}
+        <div class="tabel-bungkus">
+          <table class="tabel tabel-kecil">
+            <thead>
+              <tr>
+                <th>Produk</th>
+                <th class="kanan">Harga</th>
+                <th class="kanan">Jumlah</th>
+                <th class="kanan">Subtotal</th>
+                <th class="kanan">Potongan</th>
+                <th class="kanan">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .Data.Hasil.Items}}
+              <tr>
+                <td>{{.Nama}}</td>
+                <td class="kanan">{{rupiah .Harga}}</td>
+                <td class="kanan">{{.Jumlah}}</td>
+                <td class="kanan">{{rupiah .Subtotal}}</td>
+                <td class="kanan">{{rupiah .PotonganB2G1}} + {{rupiah .PotonganDiskon}}</td>
+                <td class="kanan">{{rupiah .Total}}</td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="tabel-bungkus" style="margin-top:12px">
+          <table class="tabel tabel-kecil">
+            <thead>
+              <tr><th>Rincian Promo</th><th class="kanan">Potongan</th></tr>
+            </thead>
+            <tbody>
+              {{range .Data.Hasil.RincianPromo}}
+              <tr>
+                <td>{{.NamaPromo}} <span class="petunjuk">({{.Jenis}})</span></td>
+                <td class="kanan">{{rupiah .NilaiPotongan}}</td>
+              </tr>
+              {{else}}
+              <tr><td colspan="2" class="kosong">Tidak ada promo yang digunakan.</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel-total" style="margin-top:12px">
+          <div class="baris-total">
+            <div><span>Subtotal</span><span>{{rupiah .Data.Hasil.Subtotal}}</span></div>
+            <div><span>Potongan Promo Produk</span><span>- {{rupiah .Data.Hasil.PotonganProduk}}</span></div>
+            <div><span>Potongan Voucher / Promo Nominal</span><span>- {{rupiah (sub .Data.Hasil.Potongan .Data.Hasil.PotonganProduk)}}</span></div>
+            <div><span>Total Setelah Promo</span><span>{{rupiah .Data.Hasil.TotalSetelahPromo}}</span></div>
+            <div><span>Poin Ditukar</span><span>{{.Data.Hasil.PoinTukar}} poin ({{nilaiPoin .Data.Hasil.PoinTukar}})</span></div>
+            <div class="total-akhir"><span>TOTAL BAYAR</span><span>{{rupiah .Data.Hasil.TotalBayar}}</span></div>
+            <div>
+              <span>Poin yang Diperoleh</span>
+              <span>
+                {{.Data.Hasil.PoinDiperoleh}} poin
+                {{if .Data.Hasil.MemberID}}
+                  <span class="petunjuk">(tingkat {{.Data.Hasil.Tingkat}}, pengali x{{.Data.Hasil.Pengali}})</span>
+                {{end}}
+              </span>
+            </div>
+          </div>
+        </div>
+        {{else}}
+        <div class="formulir" style="text-align:center;color:var(--teks-soft);font-size:13.5px">
+          Tekan tombol <b>Hitung</b> untuk melihat rincian subtotal, potongan tiap promo,
+          total setelah promo, batas tukar poin, dan poin yang akan diperoleh.
+        </div>
+        {{end}}
+
+        <div class="tombol-aksi">
+          <button type="submit" name="aksi" value="hitung" class="tombol">Hitung</button>
+          <button type="submit" name="aksi" value="simpan" class="tombol tombol-ok">Simpan Transaksi</button>
+          <a href="/" class="tombol tombol-abu">Batal</a>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <script>
+    // Menambah baris item baru dengan menyalin baris terakhir.
+    function tambahBaris() {
+      var tbody = document.getElementById('daftar-item');
+      var baris = tbody.lastElementChild.cloneNode(true);
+      var select = baris.querySelector('select');
+      select.selectedIndex = 0;
+      var jumlah = baris.querySelector('input[name="jumlah"]');
+      jumlah.value = 1;
+      tbody.appendChild(baris);
+    }
+  </script>
+</div>
+{{end}}
