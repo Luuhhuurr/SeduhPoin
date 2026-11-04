@@ -1,5 +1,8 @@
 // Package format berisi fungsi bantu untuk memformat angka, uang, dan tanggal
 // agar tampilan di template konsisten.
+//
+// Seluruh nominal uang dan poin di proyek ini bertipe int64 (dilarang float
+// untuk nominal), sehingga fungsi format di sini juga menerima int64.
 package format
 
 import (
@@ -11,6 +14,9 @@ import (
 const ZonaWIB = "Asia/Jakarta"
 
 // WIB mengembalikan waktu saat ini pada zona Asia/Jakarta.
+//
+// Nilai time.LoadLocation sudah di-cache oleh paket time itu sendiri, jadi
+// memanggilnya berkali-kali tetap murah.
 func WIB() time.Time {
 	loc, err := time.LoadLocation(ZonaWIB)
 	if err != nil {
@@ -31,6 +37,9 @@ func Rupiah(n int64) string {
 }
 
 // Angka memformat bilangan bulat dengan pemisah ribuan titik.
+//
+// Nilai negatif ditangani dengan tanda minus di depan, dan angka diubah ke
+// string terlebih dahulu agar pemisah ribuan bisa disisipkan setiap tiga digit.
 func Angka(n int64) string {
 	negatif := n < 0
 	if negatif {
@@ -62,6 +71,9 @@ func joinTitik(parts []string) string {
 }
 
 // Tanggal memformat waktu menjadi "02 Nov 2026 14:30".
+//
+// t.In(LokasiWIB()) memastikan waktu yang ditampilkan selalu dalam zona WIB,
+// apa pun zona waktu tempat server dijalankan.
 func Tanggal(t time.Time) string {
 	return t.In(LokasiWIB()).Format("02 Jan 2006 15:04")
 }
@@ -77,6 +89,8 @@ func Bulan(t time.Time) string {
 }
 
 // KeyBulan mengembalikan kunci pengelompokan bulanan "2026-11".
+//
+// Kunci ini dipakai untuk GROUP BY per bulan pada laporan FR-19 dan FR-20.
 func KeyBulan(t time.Time) string {
 	return t.In(LokasiWIB()).Format("2006-01")
 }
@@ -91,6 +105,9 @@ func LabelBulan(key string) string {
 }
 
 // LokasiWIB mengembalikan *time.Location untuk zona Asia/Jakarta.
+//
+// Windows sering tidak menyediakan basis data zona waktu sistem, sehingga
+// main.go meng-import _ "time/tzdata" agar zona ini selalu tersedia.
 func LokasiWIB() *time.Location {
 	loc, err := time.LoadLocation(ZonaWIB)
 	if err != nil {

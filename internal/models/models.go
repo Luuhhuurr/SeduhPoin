@@ -1,4 +1,8 @@
 // Package models berisi struktur data domain aplikasi SeduhPoin.
+//
+// Struct di sini adalah struct biasa — bukan objek ORM. Tidak ada tag atau
+// aturan mapping otomatis: pemetaan kolom database ke field struct dilakukan
+// manual pada query di package store.
 package models
 
 import "time"
@@ -15,6 +19,9 @@ type Cabang struct {
 }
 
 // Produk adalah item yang bisa dijual.
+//
+// Harga disimpan sebagai int64 (rupiah penuh, tanpa pecahan) agar tidak ada
+// galat pembulatan floating point pada perhitungan promo dan total.
 type Produk struct {
 	ID        int64
 	Kode      string
@@ -25,6 +32,12 @@ type Produk struct {
 }
 
 // Member adalah pelanggan terdaftar pemilik loyalty.
+//
+// PERHATIAN: struct ini sengaja tidak memiliki field Tingkat. Tingkat member
+// (Silver/Gold) dihitung on-the-fly dari total belanja 3 bulan terakhir
+// (lihat internal/calc.TingkatMember) supaya selalu akurat tanpa perlu
+// job pemeliharaan data. Yang disimpan pada tabel transaksi adalah tingkat
+// yang berlaku saat transaksi itu dibuat.
 type Member struct {
 	ID        int64
 	NoHP      string
@@ -49,6 +62,9 @@ type PromoDiskonProduk struct {
 }
 
 // Promo adalah promotion rule. CabangID kosong berarti promo berlaku untuk semua cabang.
+//
+// DeletedAt != nil berarti promo sudah dihapus (soft delete). Promo yang pernah
+// dipakai tidak boleh dihapus, hanya dinonaktifkan lewat field Aktif.
 type Promo struct {
 	ID           int64
 	Kode         string
@@ -72,6 +88,11 @@ type Promo struct {
 }
 
 // BerlakuPada menyatakan apakah promo berlaku pada tanggal/waktu dan cabang tertentu.
+//
+// Empat syarat dicek berurutan: promo aktif, tanggal dalam masa berlaku,
+// jam dalam rentang (bila diisi), dan cabang termasuk daftar tujuan (bila diisi).
+// Daftar cabang dan jam yang kosong berarti promo berlaku untuk semua cabang
+// dan sepanjang hari.
 func (p Promo) BerlakuPada(t time.Time, cabangID int64) bool {
 	if !p.Aktif {
 		return false
@@ -108,6 +129,9 @@ func (p Promo) BerlakuPada(t time.Time, cabangID int64) bool {
 }
 
 // Voucher adalah kode promo berkuota (jenis VOUCHER).
+//
+// Kuota tidak boleh pernah lebih kecil dari jumlah terpakai; hal itu
+// dijamin oleh satu pernyataan SQL penghitung decrement saat pembatalan.
 type Voucher struct {
 	Kode     string
 	PromoID  int64
@@ -128,6 +152,12 @@ const (
 )
 
 // Transaksi adalah header satu penjualan.
+//
+// TingkatSaatTransaksi dan PengaliSaatTransaksi disimpan di sini karena
+// pengali sebuah transaksi memakai tingkat member PADA SAAT transaksi dimulai
+// (sebelum transaksi itu ikut dihitung dalam perhitungan tingkat 3 bulan).
+// Transaksi yang dibatalkan tetap tersimpan dengan status BATAL — data tidak
+// dihapus (BR-14).
 type Transaksi struct {
 	ID                   int64
 	Kode                 string
@@ -152,6 +182,10 @@ type Transaksi struct {
 }
 
 // TransaksiItem adalah rincian item penjualan (nama & harga disalin).
+//
+// NamaProduk, Kategori, dan Harga disalin dari tabel produk saat transaksi
+// disimpan. Kalau produk nanti diubah harganya atau di-soft delete, riwayat
+// transaksi lama tetap menampilkan nama dan harga yang benar saat penjualan.
 type TransaksiItem struct {
 	ID           int64
 	TransaksiID  int64
@@ -166,6 +200,9 @@ type TransaksiItem struct {
 }
 
 // TransaksiPromo adalah rincian potongan per promo pada satu transaksi.
+//
+// Sama seperti item, NamaPromo disalin saat transaksi disimpan agar laporan
+// biaya promo tetap historis walaupun promo diubah atau dinonaktifkan kemudian.
 type TransaksiPromo struct {
 	ID            int64
 	TransaksiID   int64
@@ -190,6 +227,10 @@ const (
 )
 
 // PoinLot adalah batch poin dengan masa berlaku (FIFO).
+//
+// Poin tidak disimpan sebagai satu saldo per member, melainkan per batch lot
+// sehingga tanggal kedaluwarsa tiap perolehan tetap tercatat dan penukaran
+// bisa memakai lot yang paling dekat kadaluarsa (FIFO).
 type PoinLot struct {
 	ID                int64
 	MemberID          int64
@@ -202,6 +243,10 @@ type PoinLot struct {
 }
 
 // MutasiPoin adalah riwayat perubahan saldo poin member.
+//
+// Tipe mutasi: PEROLEHAN (poin baru dari transaksi), PENUKARAN (poin dipakai
+// menukar diskon), KEMBALI (poin dikembalikan saat pembatalan), dan TARIK
+// (poin perolehan ditarik saat pembatalan).
 type MutasiPoin struct {
 	ID          int64
 	MemberID    int64

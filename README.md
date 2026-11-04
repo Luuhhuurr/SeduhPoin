@@ -12,6 +12,21 @@ dan **MySQL** (XAMPP) tanpa ORM.
 | Frontend | HTML + CSS murni (bukan React/Vue, tanpa build tool) |
 | Dependensi | `github.com/go-sql-driver/mysql`, `github.com/joho/godotenv` |
 
+## Daftar Isi
+
+| # | Bagian | Isi |
+|---|---|---|
+| 1 | [Setup dari Nol](#1-setup-dari-nol) | XAMPP, import `schema.sql`, isi `.env`, jalankan |
+| 2 | [Daftar Menu](#2-daftar-menu) | 11 menu aplikasi |
+| 3 | [Struktur Folder](#3-struktur-folder) | Peta kode & pola yang dipakai |
+| 4 | [Aturan Bisnis](#4-aturan-bisnis-ringkasan) | Poin, tukar poin, 4 jenis promo, pembatalan |
+| 5 | [Unit Test](#5-unit-test) | 15 test & cara menjalankannya |
+| 6 | [Keputusan Desain](#6-keputusan-desain) | 18 keputusan + alasannya |
+| 7 | [Catatan Teknis](#7-catatan-teknis) | Tipe data, timezone, atomisitas |
+| 8 | [Kontribusi](#8-kontribusi-untuk-anggota-kelompok) | Anggota, alur branch & pull request |
+| 9 | [Panduan Menjawab Pertanyaan Dosen](#9-panduan-menjawab-pertanyaan-dosen) | **Peta file + jawaban siap pakai** |
+| 10 | [Batasan yang Ditegakkan](#10-batasan-yang-ditegakkan) | Larangan yang dipatuhi |
+
 ---
 
 ## 1. Setup dari Nol
@@ -411,7 +426,104 @@ Program studi Teknik Informatika, FMIPA, Universitas Negeri Semarang.
 
 ---
 
-## 9. Batasan yang Ditegakkan
+## 9. Panduan Menjawab Pertanyaan Dosen
+
+Bagian ini adalah peta: **pertanyaan yang sering muncul** → **jawaban singkat**
+→ **file & fungsi yang ditunjuk** saat dosen bertanya. Semua kode sudah diberi komentar
+penjelas, jadi namun jawabannya selalu bisa ditunjuk ke baris kodenya.
+
+### 9.0 Peta file: "kalau ditanya, buka file ini"
+
+| File | Isi | Pertanyaan yang bisa dijawab dari sini |
+|---|---|---|
+| `main.go` | Koneksi DB, router, server | Konfigurasi `.env`, timezone WIB, kenapa tidak `log.Fatal` |
+| `handlers/app.go` | Registrasi seluruh rute | Alur request, kenapa tanpa login |
+| `handlers/transaksi.go` | Form transaksi, Hitung, Simpan | Alur transaksi, kenapa Hitung = POST |
+| `handlers/riwayat.go` | Riwayat + pembatalan | Filter tanggal/cabang, BR-14 |
+| `handlers/promo.go` | CRUD 4 jenis promo | Validasi promo, kenapa promo terpakai tak bisa dihapus |
+| `handlers/poin.go` | Saldo & mutasi poin | Kenapa tingkat dihitung on-the-fly, kenapa saldo tak disimpan |
+| `handlers/laporan.go` | Tiga laporan | FR-18/19/20 |
+| `handlers/member.go`, `produk.go`, `cabang.go` | Master data | Soft delete, unik no_hp, harga > 0 |
+| `handlers/render.go`, `helpers.go` | Template & bantuan | Parse per request, validasi, pesan error |
+| `internal/calc/calc.go` | **Seluruh aturan bisnis** | Semua pertanyaan hitungan: B2G1, diskon, voucher, poin, FIFO, tingkat |
+| `internal/calc/calc_test.go` | Unit test aturan bisnis | "Ini dibuktikan test apa?" |
+| `internal/store/transaksi.go` | Simpan & batalkan transaksi | `sql.Tx`, `FOR UPDATE`, kuota voucher |
+| `internal/store/poin.go` | Lot & mutasi poin | FIFO, saldo aktif on-the-fly |
+| `internal/store/promo.go` | Promo & voucher | Syarat berlaku, soft delete |
+| `internal/store/laporan.go` | Query 3 laporan | Hitungan biaya promo & poin |
+| `internal/store/member.go` | Member & belanja 3 bulan | Perhitungan tingkat Silver/Gold |
+| `internal/models/models.go` | Struct domain | Kenapa tidak ada kolom tingkat/saldo |
+| `internal/models/models_test.go` | Test validitas promo | Masa berlaku, jam, cabang, status |
+| `internal/format/format.go` | Rupiah & tanggal WIB | Format tampilan |
+| `schema.sql` | DDL + index + seed | Kenapa InnoDB, kenapa `CHECK`, index apa saja |
+| `static/style.css` | Seluruh tampilan | Tanpa framework CSS, responsif |
+| `templates/` | Halaman HTML | Layout bersama, `{{define "content"}}` |
+
+### 9.1 Pertanyaan arsitektur
+
+| Pertanyaan | Jawaban singkat | File & fungsi |
+|---|---|---|
+| Kenapa tidak pakai framework web? | Spesifikasi tugas melarang; `net/http` + `html/template` saja sudah cukup. Router memakai pola `ServeMux` Go 1.22+ (method + wildcard). | `main.go`, `handlers/app.go` → `App.Register` |
+| Kenapa tidak pakai ORM? | Dilarang spesifikasi. Semua akses data lewat `database/sql` dengan SQL mentah; tiap query ditulis tangan di layer `store`. | `internal/store/db.go` → `Store`, `Store.Query`, `Store.ScanRows` |
+| Kenapa tidak ada login? | Satu peran saja (kasir/admin) sesuai spesifikasi. Karena itu tidak ada tabel user, session, atau password sama sekali. | Tidak ada file auth — buktinya `handlers/app.go` mendaftarkan semua menu langsung |
+| Kenapa uangnya `int64`, bukan `float`? | `float64` menimbulkan galat pembulatan pada nominal rupiah. Semua uang dan poin `int64`; `float64` hanya untuk pengali tingkat (1.5 / 1.0). | `internal/calc/calc.go` → konstanta di bagian atas |
+| Bagaimana pemisahan layer? | `handlers` = HTTP + validasi + template; `internal/store` = seluruh SQL; `internal/calc` = aturan bisnis murni; `internal/models` = struct; `internal/format` = format angka/tanggal. `calc` tidak boleh menyentuh database. | Seluruh folder `internal/` |
+| Kenapa `internal/calc` dipisah? | Supaya aturan bisnis bisa diuji tanpa database. Semua perhitungan di satu tempat, dipakai ulang oleh tombol "Hitung" maupun saat menyimpan. | `internal/calc/calc.go` → `Hitung` |
+
+### 9.2 Pertanyaan aturan bisnis
+
+| Pertanyaan | Jawaban singkat | File & fungsi |
+|---|---|---|
+| Bagaimana urutan perhitungan transaksi? | Wajib: subtotal → B2G1 → diskon % produk → (voucher **atau** potongan min belanja) → total setelah promo → tukar poin → poin diperoleh. | `internal/calc/calc.go` → `Hitung` (nomor langkah ada di komentar func) |
+| Kenapa "Hitung" pakai POST ke server, bukan JavaScript? | Agar perhitungan tidak diduplikasi. Fungsi `calc.Hitung` yang sama dipakai saat menampilkan rincian dan saat menyimpan, jadi angka di struk pasti sama. | `handlers/transaksi.go` → `hitungTransaksi`, `renderFormTransaksi` |
+| Bagaimana batas tukar poin? | Maksimal 50% dari total **setelah promo**: `min(saldo aktif, floor(50% × total / Rp1.000))`. | `internal/calc/calc.go` → `BatasTukarPoin` |
+| Mengapa tingkat member tidak disimpan di tabel member? | Dihitung on-the-fly dari total belanja 3 bulan terakhir (hanya transaksi `SELESAI`). Jadi selalu akurat tanpa job pemeliharaan data. Ambang Gold Rp1.500.000. | `internal/store/member.go` → `Belanja3Bulan`, `Belanja3BulanSemuaMember`; `internal/calc/calc.go` → `TingkatMember` |
+| Kenapa pengali disimpan di tabel transaksi? | Agar perolehan poin tidak berubah retroactive ketika member naik tingkat di kemudian hari. Menyimpan snapshot tingkat saat transaksi dimulai. | `internal/store/transaksi.go` → `DataSimpanTransaksi.Tingkat`; kolom `tingkat_saat_transaksi` |
+| Bagaimana FIFO poin bekerja? | Poin disimpan per *lot* (batch) dengan tanggal kedaluwarsa sendiri. Tukar poin memakai lot yang **paling dekat kedaluwarsa** dulu; jika sama, yang diperoleh lebih dulu didahulukan. | `internal/calc/calc.go` → `UrutFIFO`, `AlokasiFIFO`; `internal/store/poin.go` → `AmbilLotAktifTx` |
+| Kenapa saldo poin tidak disimpan? | Karena tiap poin punya masa berlaku berbeda (6 bulan), saldo harus dijumlahkan dari lot yang masih `AKTIF` dan belum kedaluwarsa. | `internal/store/poin.go` → `SaldoPoinAktif` |
+| Kenapa tidak boleh digabung voucher + potongan min belanja? | Aturan BR-11. Bila kode voucher diisi, potongan minimal belanja dilewati; kode voucher hanya satu per transaksi. | `internal/calc/calc.go` → `Hitung`, bagian voucher ATAU min belanja |
+| Bagaimana B2G1 menghitung unit gratis? | Unit digabung per kategori; tiap 3 unit → 1 unit **termurah** gratis. Diskon % tidak diterapkan pada unit gratis. | `internal/calc/calc.go` → `HitungB2G1`, `HitungDiskonProduk` |
+| Kapan sebuah promo berlaku? | Ada empat syarat: masa berlaku tanggal, jam (kosong = sepanjang hari), cabang (kosong = semua cabang), dan status aktif. | `internal/models/models.go` → `Promo.BerlakuPada`; `internal/store/promo.go` → `PromoAktif` |
+| Kenapa promo yang sudah dipakai tidak boleh dihapus? | Agar laporan biaya promo (FR-18) tetap punya rujukan promo yang valid. Promo yang terpakai hanya boleh dinonaktifkan. | `internal/store/promo.go` → `PromoSudahDipakai`; `handlers/promo.go` → `hapusPromo` |
+| Bagaimana pembatalan transaksi? | Status → `BATAL`, poin perolehan ditarik, poin yang ditukar dikembalikan ke lot asal, kuota voucher dikembalikan. Data **tidak** dihapus. Ditolak bila poin perolehan sudah dipakai di transaksi lain. | `internal/store/transaksi.go` → `BatalkanTransaksi` |
+
+### 9.3 Pertanyaan non-functional / keamanan
+
+| Pertanyaan | Jawaban singkat | File & fungsi |
+|---|---|---|
+| Bagaimana menjamin simpan transaksi itu atomic? | Semua penulisan (header, item, rincian promo, voucher, tukar poin, lot baru) dijalankan dalam **satu `sql.Tx`**, dengan `defer tx.Rollback()` dan `Commit()` di akhir. | `internal/store/transaksi.go` → `SimpanTransaksi` |
+| Bagaimana mencegah dua kasir memakai lot poin yang sama? | Lot dikunci dengan `SELECT ... FOR UPDATE` di dalam transaksi yang sama, sehingga lot tidak bisa diubah transaksi lain sampai `Commit`. | `internal/store/poin.go` → `AmbilLotAktifTx` |
+| Bagaimana menjamin kuota voucher tidak terlampaui? | Satu statement: `UPDATE voucher SET terpakai = terpakai + 1 WHERE kode = ? AND terpakai < kuota`, lalu `RowsAffected()` diperiksa. Ada pula `CHECK (terpakai <= kuota)` di database. | `internal/store/transaksi.go` → `SimpanTransaksi`; `schema.sql` → tabel `voucher` |
+| Kenapa tidak pakai `log.Fatal`? | `log.Fatal` mematikan seluruh server saat satu request gagal. Di sini kegagalan database hanya menghasilkan halaman pesan, server tetap melayani request lain. | `handlers/app.go`, `handlers/helpers.go` → `pesanError` |
+| Bagaimana validasi input & pesan error? | Validasi di server (bukan hanya di browser), dengan pesan Bahasa Indonesia yang jelas; form di-render ulang dengan isian yang tadi. | `handlers/helpers.go` → `parseInt64`, `parseTanggal`; `handlers/promo.go` → `validasiPromo` |
+| Kenapa master data di-soft delete? | Transaksi lama harus tetap menampilkan nama produk/member lama. Karena itu nama & harga juga **disalin** ke tabel `transaksi_item` saat transaksi disimpan. | `internal/store/{produk,member,cabang}.go`; `schema.sql` → tabel `transaksi_item` |
+| Bagaimana zona waktu dijamin WIB? | `import _ "time/tzdata"` di `main.go` (Windows sering tidak punya tzdata sistem) + `loc=Asia%2FJakarta` pada DSN. | `main.go`; `internal/format/format.go` → `WIB` |
+| Kenapa DSN harus `Asia%2FJakarta`? | Driver MySQL memisahkan DSN pada karakter `/` terakhir, jadi `/` harus di-encode menjadi `%2F`. | README Bagian 1, Langkah 3 |
+| Bagaimana template dinamis? | Template di-parse **per request** tanpa cache, jadi mengubah `.html` langsung terlihat tanpa restart. | `handlers/render.go` |
+| Apa yang dijamin unit test? | Contoh angka wajib (Rp145.000 → Rp104.000 → Rp64.000, 15 poin), FIFO 2 lot + tie-break, batas Gold (Rp1.499.999 Silver / Rp1.500.000 Gold), syarat gabung promo, dan validitas promo. | `internal/calc/calc_test.go`, `internal/models/models_test.go` |
+
+### 9.4 Alur demo yang aman (tidak merusak data demo)
+
+Kalau diminta demo cepat, urutan ini paling aman dan tidak merusak data:
+
+1. **Dashboard** — tunjukkan ringkasan (menu paling atas).
+2. **Transaksi → Hitung** (tanpa menyimpan) — masukkan 3 item Kopi Susu Gula Aren
+   (Rp28.000), pakai voucher `SEDUH10K`, tekan **Hitung**. Tunjukkan rinciannya:
+   subtotal, potongan, total setelah promo, batas tukar poin, poin yang diperoleh.
+   **Jangan klik Simpan** supaya data demo tetap bersih.
+3. **Promo** — tunjukkan 4 jenis promo dan tanggal/jam/cabang; jelaskan kenapa
+   diskon produk boleh digabung tapi min-belanja tidak boleh digabung voucher.
+4. **Poin Member** — buka `081234567890`, jelaskan saldo = jumlah lot aktif,
+   tingkat dihitung on-the-fly, dan mutasi `PEROLEHAN/PENUKARAN/KEMBALI/TARIK`.
+5. **Laporan** — tunjukkan tiga laporan (biaya promo, poin berlaku, member per tingkat).
+
+> Kalau diminta demo **penyimpanan** transaksi, lakukan di cabang `C03` (bandung)
+> dengan kode voucher `SEDUH10K`, lalu batalkan kembali lewat menu Riwayat agar
+> tampilan kembali bersih. Pembatalan juga sekaligus menunjukkan fitur BR-14.
+
+---
+
+## 10. Batasan yang Ditegakkan
 
 * Tidak memakai framework web (Gin/Echo/Fiber/Beego).
 * Tidak memakai ORM (GORM atau lainnya); seluruh akses database memakai `database/sql`

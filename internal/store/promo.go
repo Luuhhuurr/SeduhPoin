@@ -16,6 +16,9 @@ import (
 var ErrPromoSudahDipakai = errors.New("promo sudah pernah dipakai pada transaksi, sehingga hanya dapat dinonaktifkan (tidak dapat dihapus)")
 
 // DaftarPromo mengembalikan daftar promo (belum dihapus) beserta info voucher.
+//
+// Promo disimpan dengan soft delete (deleted_at), sehingga promo yang pernah
+// dipakai tetap dapat dirujuk oleh transaksi lama.
 func (s *Store) DaftarPromo(ctx context.Context, keyword, jenis string) ([]models.Promo, error) {
 	query := `SELECT p.id, p.kode, p.nama, p.jenis, COALESCE(p.nilai_persen,0),
 	                 COALESCE(p.nilai_nominal,0), COALESCE(p.min_belanja,0),
@@ -82,6 +85,9 @@ func scanPromo(r *Rows) (models.Promo, error) {
 }
 
 // parseCabangIDs mengubah CSV id cabang menjadi slice int64.
+//
+// Cabang tujuan promo disimpan sebagai CSV pada kolom VARCHAR agar tidak perlu
+// tabel pivot. Kosong berarti promo berlaku untuk semua cabang.
 func parseCabangIDs(raw string) []int64 {
 	if strings.TrimSpace(raw) == "" {
 		return nil
@@ -112,6 +118,12 @@ func formatCabangIDs(ids []int64) string {
 }
 
 // AmbilPromo mengambil satu promo beserta aturan detailnya.
+//
+// Aturan detail tiap jenis promo (BR-09):
+//   - DISKON_PRODUK         -> daftar produk + persen diskon (tabel promo_produk)
+//   - POTONGAN_MIN_BELANJA  -> nilai nominal + minimal belanja (kolom promo)
+//   - B2G1                  -> daftar kategori (tabel promo_kategori)
+//   - VOUCHER               -> kode + kuota (tabel voucher)
 func (s *Store) AmbilPromo(ctx context.Context, id int64) (models.Promo, error) {
 	var p models.Promo
 	var jamMulai, jamSelesai sql.NullString
@@ -315,6 +327,10 @@ func (s *Store) SetAktifPromo(ctx context.Context, id int64, aktif bool) error {
 }
 
 // HapusPromo melakukan soft delete. Promo yang sudah pernah dipakai akan ditolak.
+//
+// Aturan: promo yang sudah pernah dipakai pada transaksi HANYA BOLEH
+// dinonaktifkan, tidak boleh dihapus — supaya laporan biaya promo (FR-18)
+// masih dapat menunjuk promo lama.
 func (s *Store) HapusPromo(ctx context.Context, id int64) error {
 	dipakai, err := s.PromoSudahDipakai(ctx, id)
 	if err != nil {
@@ -336,6 +352,10 @@ func (s *Store) PromoSudahDipakai(ctx context.Context, id int64) (bool, error) {
 }
 
 // PromoAktif mengembalikan seluruh promo yang berlaku pada waktu dan cabang tertentu.
+//
+// Promo yang sudah dinonaktifkan (aktif = 0), sudah kedaluwarsa, di luar
+// jam berlaku, atau tidak berlaku untuk cabang tersebut akan dibuang di sini
+// (method BerlakuPada pada model Promo).
 func (s *Store) PromoAktif(ctx context.Context, cabangID int64, waktu time.Time) ([]models.Promo, error) {
 	daftar, err := s.DaftarPromo(ctx, "", "")
 	if err != nil {
@@ -356,6 +376,9 @@ func (s *Store) PromoAktif(ctx context.Context, cabangID int64, waktu time.Time)
 }
 
 // UbahKuotaVoucher memperbarui kuota voucher (tidak boleh lebih kecil dari terpakai).
+//
+// Syarat terpakai <= kuota dituliskan pada WHERE sehingga kuota voucher tidak
+// pernah diturunkan di bawah jumlah yang sudah terpakai.
 func (s *Store) UbahKuotaVoucher(ctx context.Context, kode string, kuota int) error {
 	_, err := s.Exec(ctx,
 		`UPDATE voucher SET kuota = ? WHERE kode = ? AND terpakai <= ?`, kuota, kode, kuota)

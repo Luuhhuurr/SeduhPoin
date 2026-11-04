@@ -12,6 +12,13 @@ import (
 )
 
 // redirect mengarahkan pengguna ke URL lain dengan pesan error (opsional).
+//
+// Pola POST-Redirect-GET: setelah POST(form) selesai, handler mengarahkan
+// pengguna ke halaman daftar/detail. Ini mencegah form terkirim ulang saat
+// pengguna menekan tombol refresh browser.
+//
+// Pesan error/sukses ikut ditanam di query string (?err=... / ?ok=...) lalu
+// dibaca kembali oleh halaman tujuan dengan ambilError/ambilSukses.
 func redirect(w http.ResponseWriter, r *http.Request, target string, errMsg string) {
 	if errMsg != "" {
 		target += separatorURL(target) + "err=" + url.QueryEscape(errMsg)
@@ -43,6 +50,10 @@ func ambilSukses(r *http.Request) string {
 }
 
 // idDariPath mengambil parameter id dari path dan memvalidasinya.
+//
+// id diambil dari r.PathValue("id") yang sesuai dengan pola rute
+// "GET /riwayat/{id}". Nilai yang bukan angka positif ditolak dengan pesan
+// yang bisa dipahami pengguna, bukan error panic.
 func idDariPath(r *http.Request) (int64, error) {
 	raw := r.PathValue("id")
 	id, err := strconv.ParseInt(raw, 10, 64)
@@ -53,6 +64,10 @@ func idDariPath(r *http.Request) (int64, error) {
 }
 
 // parseInt64 mengubah string menjadi int64 dengan nilai default.
+//
+// Input form selalu berupa teks, sehingga dikonversi dengan strconv.ParseInt.
+// Bila isian kosong atau bukan angka, nilai default dipakai supaya form
+// tetap bisa ditampilkan tanpa error.
 func parseInt64(raw string, defaultNilai int64) int64 {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -66,6 +81,10 @@ func parseInt64(raw string, defaultNilai int64) int64 {
 }
 
 // parseTanggal mem-parsing tanggal berformat YYYY-MM-DD.
+//
+// ParseInLocation dipakai (bukan time.Parse) agar tanggal langsung berada di
+// zona WIB, sesuai aturan bahwa seluruh timestamp aplikasi memakai
+// Asia/Jakarta.
 func parseTanggal(raw string) (time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -104,6 +123,10 @@ func normalisasiJam(raw string) (string, error) {
 }
 
 // pesanError mengirim halaman error sederhana kepada pengguna.
+//
+// Halaman ini dipakai saat terjadi kegagalan yang tidak bisa ditangani di
+// level form (misalnya database down). Server tetap hidup dan pengguna
+// mendapat petunjuk yang bisa ditindaklanjuti, bukan dump error teknis.
 func pesanError(w http.ResponseWriter, code int, judul, detail string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)

@@ -11,8 +11,14 @@ import (
 
 // LaporanBiayaPromo menyusun laporan biaya promo (FR-18).
 //
-// Hanya transaksi berstatus SELESAI yang dihitung. Biaya penukaran poin
-// (poin x Rp1.000) dilaporkan pada kolom terpisah dari total potongan promo.
+// Laporan ini menampilkan per promo: jumlah transaksi yang memakainya, total
+// potongan nilai rupiahnya, sisa kuota voucher (khusus jenis voucher), dan
+// biaya penukaran poin pada kolom terpisah.
+//
+// Hanya transaksi berstatus SELESAI yang dihitung, sehingga transaksi yang
+// dibatalkan otomatis keluar dari laporan biaya promo (BR-14).
+// Biaya penukaran poin (poin x Rp1.000) dilaporkan pada kolom terpisah dari
+// total potongan promo.
 func (s *Store) LaporanBiayaPromo(ctx context.Context, dari, sampai *time.Time, cabangID int64) (models.LaporanPromo, error) {
 	query := `
 		SELECT tp.promo_id, tp.nama_promo, tp.jenis, tp.nilai_potongan,
@@ -43,6 +49,13 @@ func (s *Store) LaporanBiayaPromo(ctx context.Context, dari, sampai *time.Time, 
 
 	// Pengelompokan dilakukan di Go agar biaya tukar poin pada transaksi yang
 	// memakai beberapa promo tidak terhitung lebih dari sekali.
+	//
+	// Catatan: satu transaksi boleh memakai beberapa promo sekaligus
+	// (diskon % produk + B2G1 + voucher). Bila penjumlahan dilakukan per baris
+	// SQL, biaya tukar poin akan terduplikasi untuk setiap promo pada
+	// transaksi tersebut. Karena itu biaya tukar poin dijumlahkan per
+	// TRANSAKSI UNIK per promo (map transaksiPerPromo), lalu ditampilkan pada
+	// kolom terpisah dari total potongan promo (FR-18).
 	type promoKey struct {
 		id    int64
 		nama  string
@@ -146,6 +159,9 @@ func (s *Store) LaporanBiayaPromo(ctx context.Context, dari, sampai *time.Time, 
 
 // LaporanPoinBerlaku menyusun laporan poin berlaku (FR-19).
 //
+// Laporan ini menampilkan total poin yang masih bisa ditukar beserta nilai
+// rupiahnya (1 poin = Rp1.000), dikelompokkan per bulan kedaluwarsa.
+//
 // Poin dihitung on-the-fly: lot berstatus AKTIF, sisa positif, dan belum
 // melewati tanggal kedaluwarsa.
 func (s *Store) LaporanPoinBerlaku(ctx context.Context, hariIni time.Time) (models.LaporanPoin, error) {
@@ -185,6 +201,10 @@ func (s *Store) LaporanPoinBerlaku(ctx context.Context, hariIni time.Time) (mode
 // Untuk setiap akhir bulan dalam periode, tingkat member dihitung dari belanja
 // 3 bulan sebelumnya (transaksi SELESAI). Jumlah member baru mengikuti
 // tgl_daftar member pada bulan tersebut.
+//
+// Penting: tingkat member TIDAK disimpan di tabel member. Laporan ini menghitung
+// ulang (recalculate) tingkat untuk setiap akhir bulan, sehingga nilai yang
+// ditampilkan sama dengan tingkat yang dipakai sistem saat transaksi berjalan.
 func (s *Store) LaporanMemberPerTingkat(ctx context.Context, dari, sampai time.Time) (models.LaporanTingkat, error) {
 	member, err := s.DaftarMember(ctx, "")
 	if err != nil {

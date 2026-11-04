@@ -64,6 +64,15 @@ func (a *App) formTransaksiBaru(w http.ResponseWriter, r *http.Request) {
 }
 
 // prosesTransaksi menangani tombol "Hitung" dan "Simpan".
+//
+// Tombol "Hitung" dan tombol "Simpan" memakai handler yang sama. Bedanya hanya
+// pada tombol yang ditekan: "Hitung" hanya menampilkan rincian perhitungan,
+// sedangkan "Simpan" juga menulis ke database.
+//
+// Penting: perhitungan TIDAK pernah dilakukan di sisi browser. Kedua tombol
+// mengirim POST ke server, server memanggil fungsi calc.Hitung yang sama,
+// lalu merender ulang form. Dengan begitu tidak ada duplikasi aturan bisnis
+// antara tampilan dan penyimpanan.
 func (a *App) prosesTransaksi(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		pesanError(w, http.StatusBadRequest, "Data form tidak valid", err.Error())
@@ -96,6 +105,10 @@ func (a *App) prosesTransaksi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Tombol "Simpan": simpan seluruh data dalam satu sql.Tx.
+	//
+	// Seluruh efek transaksi (header, item, rincian promo, pemakaian voucher,
+	// penukaran poin, dan pembuatan lot poin baru) disimpan secara atomik:
+	// bila salah satu gagal, semuanya dibatalkan (rollback).
 	data := store.DataSimpanTransaksi{
 		CabangID:          f.CabangID,
 		MemberID:          hasil.MemberID,
@@ -173,7 +186,11 @@ func (a *App) hitungTransaksi(ctx context.Context, f formTransaksi) (*hasilTrans
 	}
 	hasil.Subtotal = calc.Subtotal(items)
 
-	// Member terdaftar (pengguna poin)
+	// Member terdaftar (pengguna poin).
+	//
+	// Member dicari berdasarkan nomor HP. Hanya member terdaftar yang boleh
+	// memperoleh dan menukar poin; pelanggan non-member tetap boleh memakai
+	// promo, tetapi tidak mendapat poin.
 	if f.NoHP != "" {
 		member, err := a.Store.CariMemberByNoHP(ctx, f.NoHP)
 		if errors.Is(err, store.ErrMemberTidakDitemukan) {
@@ -192,6 +209,11 @@ func (a *App) hitungTransaksi(ctx context.Context, f formTransaksi) (*hasilTrans
 		hasil.SaldoPoin = saldo
 
 		// Tingkat dihitung dari belanja 3 bulan terakhir SEBELUM transaksi ini.
+		//
+		// Tingkat member tidak disimpan di tabel member, tetapi selalu dihitung
+		// on-the-fly dari transaksi berstatus SELESAI dalam 3 bulan terakhir.
+		// Karena perhitungan ini dilakukan sebelum transaksi ini tersimpan,
+		// pengali yang dipakai adalah tingkat pada saat transaksi dimulai.
 		belanja, err := a.Store.Belanja3Bulan(ctx, member.ID, calc.BatasTier(hariIni))
 		if err != nil {
 			return hasil, "Gagal menghitung tingkat member: " + err.Error()
@@ -200,7 +222,10 @@ func (a *App) hitungTransaksi(ctx context.Context, f formTransaksi) (*hasilTrans
 		hasil.Pengali = calc.PengaliTingkat(hasil.Tingkat)
 	}
 
-	// Promo yang berlaku pada cabang dan waktu ini
+	// Promo yang berlaku pada cabang dan waktu ini.
+	//
+	// Hanya promo yang aktif, belum kedaluwarsa, sesuai jam, dan berlaku untuk
+	// cabang terpilih yang dimuat ke sini.
 	promos, err := a.Store.PromoAktif(ctx, f.CabangID, now)
 	if err != nil {
 		return hasil, "Gagal memuat data promo: " + err.Error()
@@ -243,6 +268,9 @@ func (a *App) hitungTransaksi(ctx context.Context, f formTransaksi) (*hasilTrans
 
 	// Voucher: maksimal 1 per transaksi. Bila ada voucher, promo potongan
 	// minimal belanja TIDAK boleh digabung (BR-11).
+	//
+	// Note: voucher yang sudah tidak berlaku (masa berlaku, jam, atau cabang)
+	// juga ditolak di sini, sebelum masuk ke perhitungan.
 	var aturanVoucher *calc.PromoAturan
 	if f.KodeVoucher != "" {
 		voucher, err := a.Store.AmbilVoucherByKode(ctx, f.KodeVoucher)
@@ -302,7 +330,10 @@ func (a *App) hitungTransaksi(ctx context.Context, f formTransaksi) (*hasilTrans
 		})
 	}
 
-	// 6. Poin yang akan diperoleh (hanya untuk member terdaftar)
+	// 6. Poin yang akan diperoleh (hanya untuk member terdaftar).
+	//
+	// Poin baru dibuat sebagai lot terpisah setelah transaksi tersimpan
+	// (lihat store.SimpanTransaksi), dengan masa berlaku 6 bulan.
 	if hasil.MemberID != nil {
 		hasil.PoinDiperoleh = perhitungan.PoinDiperoleh
 	}

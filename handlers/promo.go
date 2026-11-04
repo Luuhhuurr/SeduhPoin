@@ -24,6 +24,9 @@ func (a *App) registerPromo(mux *http.ServeMux) {
 }
 
 // daftarPromo menampilkan daftar promo dan daftar voucher.
+//
+// Kuota voucher ditampilkan sebagai sisa (kuota - terpakai) sehingga kasir
+// dapat melihat berapa voucher yang masih bisa dipakai.
 func (a *App) daftarPromo(w http.ResponseWriter, r *http.Request) {
 	keyword := strings.TrimSpace(r.URL.Query().Get("q"))
 	jenis := strings.TrimSpace(r.URL.Query().Get("jenis"))
@@ -190,6 +193,9 @@ func (a *App) simpanPromo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Aturan detail sesuai jenis promo.
+	//
+	// Empat jenis promo (BR-09): diskon produk (%), potongan minimal belanja,
+	// beli 2 gratis 1 per kategori, dan voucher berkode.
 	switch p.Jenis {
 	case models.JenisDiskonProduk:
 		produkIDs := r.Form["produk_ids"]
@@ -257,6 +263,10 @@ func (a *App) simpanPromo(w http.ResponseWriter, r *http.Request) {
 }
 
 // validasiPromo memeriksa kelengkapan data promo sesuai jenisnya.
+//
+// Validasi dilakukan di server (bukan hanya di sisi browser) karena setiap
+// jenis promo membutuhkan data yang berbeda (BR-09). Pesan dikembalikan dalam
+// bentuk kalimat Bahasa Indonesia agar bisa langsung ditampilkan ke pengguna.
 func validasiPromo(p models.Promo, r *http.Request) string {
 	if p.Kode == "" {
 		return "Kode promo wajib diisi."
@@ -348,6 +358,9 @@ func (a *App) ubahStatusPromo(w http.ResponseWriter, r *http.Request) {
 
 // hapusPromo melakukan soft delete promo. Promo yang sudah dipakai hanya
 // dapat dinonaktifkan, tidak dapat dihapus.
+//
+// Aturan ini dijaga di store.HapusPromo (yang mengecek PromoSudahDipakai),
+// sehingga aturan tetap berlaku meskipun dipanggil dari tempat lain.
 func (a *App) hapusPromo(w http.ResponseWriter, r *http.Request) {
 	id, err := idDariPath(r)
 	if err != nil {

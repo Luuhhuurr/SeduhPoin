@@ -17,6 +17,11 @@ var ErrPoinTidakCukup = errors.New("saldo poin pada lot tidak mencukupi")
 //
 // Poin yang sudah melewati tanggal kedaluwarsa diabaikan (dihitung on-the-fly),
 // begitu juga lot yang berstatus DITARIK.
+//
+// Penting: saldo TIDAK disimpan sebagai kolom terpisah pada tabel member.
+// Saldo selalu dihitung dari penjumlahan sisa lot yang masih aktif, sehingga
+// tidak mungkin meleset dari data lot. Lot yang sudah lewat tanggal kedaluwarsa
+// otomatis dikeluarkan tanpa perlu ada job penjadwal yang menandainya.
 func (s *Store) SaldoPoinAktif(ctx context.Context, memberID int64, hariIni time.Time) (int64, error) {
 	var saldo int64
 	err := s.DB.QueryRowContext(ctx, `
@@ -60,6 +65,14 @@ func (s *Store) SaldoPoinAktifSemuaMember(ctx context.Context, hariIni time.Time
 // AmbilLotAktifTx mengambil lot poin aktif member dengan penguncian FOR UPDATE.
 //
 // Penguncian memastikan poin tidak dipakai dua kali oleh transaksi bersamaan.
+//
+// Dua hal penting pada query ini:
+//   - ORDER BY tanggal_kadaluarsa ASC, tanggal_dapat ASC mengimplementasikan
+//     urutan FIFO: lot yang paling dekat kedaluwarsa dipakai lebih dulu; bila
+//     tanggal kedaluwarsa sama, lot yang diperoleh lebih dulu didahulukan.
+//   - FOR UPDATE mengunci baris lot yang dibaca sampai transaksi selesai,
+//     sehingga dua kasir yang menukar poin bersamaan tidak dapat memakai
+//     lot yang sama.
 func (s *Store) AmbilLotAktifTx(ctx context.Context, tx *sql.Tx, memberID int64, hariIni time.Time) ([]calc.Lot, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, jumlah_sisa, tanggal_dapat, tanggal_kadaluarsa, status
@@ -87,6 +100,10 @@ func (s *Store) AmbilLotAktifTx(ctx context.Context, tx *sql.Tx, memberID int64,
 }
 
 // AmbilLotMember mengambil seluruh lot poin milik member (untuk halaman poin).
+//
+// Lot ditampilkan apa adanya (termasuk yang sudah DITARIK atau kedaluwarsa)
+// supaya riwayat perolehan member tetap terlihat di halaman detail poin.
+// Status efektifnya dihitung di sisi handler.
 func (s *Store) AmbilLotMember(ctx context.Context, memberID int64) ([]models.PoinLot, error) {
 	rows, err := s.Query(ctx, `
 		SELECT id, member_id, transaksi_id, jumlah_awal, jumlah_sisa,
@@ -127,6 +144,10 @@ func (s *Store) SimpanLotTx(ctx context.Context, tx *sql.Tx, l models.PoinLot) (
 }
 
 // KurangiLotTx mengurangi sisa poin pada sebuah lot.
+//
+// Syarat jumlah_sisa >= jumlah ditulis langsung pada WHERE, sehingga lot tidak
+// pernah menjadi minus. Jumlah baris yang terpengaruh diperiksa; bila nol,
+// berarti lot tidak memiliki sisa cukup dan transaksi dibatalkan (rollback).
 func (s *Store) KurangiLotTx(ctx context.Context, tx *sql.Tx, lotID int64, jumlah int64) error {
 	res, err := tx.ExecContext(ctx,
 		`UPDATE poin_lot SET jumlah_sisa = jumlah_sisa - ? WHERE id = ? AND jumlah_sisa >= ?`,
@@ -160,6 +181,11 @@ func (s *Store) TarikLotTx(ctx context.Context, tx *sql.Tx, lotID int64) error {
 }
 
 // SimpanMutasiTx mencatat mutasi poin member.
+//
+// Empat jenis mutasi poin: PEROLEHAN (poin dari transaksi), PENUKARAN (poin
+// ditukar menjadi potongan pembayaran), KEMBALI (poin dikembalikan saat
+// pembatalan), dan TARIK (poin ditarik saat pembatalan).
+// Mutasi disimpan sebagai jejak audit; saldo sendiri tetap dihitung dari lot.
 func (s *Store) SimpanMutasiTx(ctx context.Context, tx *sql.Tx, m models.MutasiPoin) (int64, error) {
 	var lotID, transaksiID any
 	if m.LotID != nil {

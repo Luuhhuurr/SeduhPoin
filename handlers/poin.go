@@ -34,6 +34,11 @@ func (a *App) registerPoin(mux *http.ServeMux) {
 }
 
 // daftarPoin menampilkan daftar seluruh member beserta saldo poin aktifnya.
+//
+// Tiga hal dihitung on-the-fly (tidak disimpan sebagai kolom):
+//   - saldo poin aktif = jumlah sisa lot AKTIF yang belum kedaluwarsa,
+//   - nilai rupiah poin = saldo x Rp1.000 (nilai tukar),
+//   - tingkat member   = belanja 3 bulan terakhir, ambang Rp1.500.000.
 func (a *App) daftarPoin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	hariIni := format.HariIni()
@@ -113,6 +118,8 @@ func (a *App) detailPoin(w http.ResponseWriter, r *http.Request) {
 	var barisLots []barisLot
 	for _, l := range lots {
 		b := barisLot{PoinLot: l}
+		// Status efektif dihitung di sini, bukan disimpan di database:
+		// lot dianggap kedaluwarsa begitu tanggal kadaluarsanya lewat.
 		switch {
 		case l.Status == models.LotDitarik:
 			b.StatusEfektif = "DITARIK"

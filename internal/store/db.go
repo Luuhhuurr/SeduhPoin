@@ -1,4 +1,7 @@
 // Package store berisi akses basis data (query SQL mentah, tanpa ORM).
+//
+// Seluruh SQL ditulis tangan di package ini; tidak ada GORM maupun mapper
+// otomatis lain. Tabel dipetakan ke struct secara manual di file masing-masing.
 package store
 
 import (
@@ -23,6 +26,11 @@ func (s *Store) Ping(ctx context.Context) error {
 }
 
 // Begin membuka transaksi database (sql.Tx) baru.
+//
+// Transaksi dibuka eksplisit (bukan otomatis) supaya penulisan yang related
+// (misalnya simpan transaksi: header + item + promo + poin) berada dalam satu
+// sql.Tx. Bila terjadi error di tengah, defer tx.Rollback() membatalkan
+// seluruh perubahan sekaligus.
 func (s *Store) Begin(ctx context.Context) (*sql.Tx, error) {
 	return s.DB.BeginTx(ctx, nil)
 }
@@ -56,6 +64,9 @@ func (s *Store) Exec(ctx context.Context, query string, args ...any) (sql.Result
 }
 
 // ExecTx menjalankan perintah yang mengubah data di dalam transaksi.
+//
+// memakai tx (bukan s.DB) supaya statement ini ikut Commit/Rollback bersama
+// transaction yang sama.
 func (s *Store) ExecTx(ctx context.Context, tx *sql.Tx, query string, args ...any) (sql.Result, error) {
 	return tx.ExecContext(ctx, query, args...)
 }
@@ -67,6 +78,9 @@ func (s *Store) QueryRowBaru(ctx context.Context, tx *sql.Tx, query string, args
 
 // ScanRows adalah helper generik untuk memindai seluruh baris hasil query
 // menjadi slice. Fungsi scan harus mengisi satu baris ke variabel output.
+//
+// Fungsi generik (type parameter T) dipakai agar satu helper dapat dipakai
+// untuk semua tabel tanpa menulis loop Scan berulang-ulang.
 func ScanRows[T any](rows *Rows, scan func(*Rows) (T, error)) ([]T, error) {
 	defer rows.Close()
 	var hasil []T

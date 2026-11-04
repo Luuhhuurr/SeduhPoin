@@ -10,6 +10,9 @@ import (
 )
 
 // View adalah data umum yang dikirim ke setiap halaman.
+//
+// Data di dalam template dibaca lewat nama field (.Title, .Menu, .Data),
+// sehingga setiap handler cukup mengisi satu struct View.
 type View struct {
 	Title string // judul halaman (header)
 	Menu  string // menu sidebar yang sedang aktif
@@ -18,6 +21,9 @@ type View struct {
 }
 
 // templateFuncs berisi helper yang boleh dipakai di dalam template.
+//
+// Fungsi-fungsi ini terdaftar pada template.FuncMap, sehingga dapat dipanggil
+// di template seperti {{rupiah .TotalBayar}} atau {{tanggal .Tanggal}}.
 var templateFuncs = template.FuncMap{
 	"rupiah":            format.Rupiah,
 	"angka":             format.Angka,
@@ -72,6 +78,9 @@ func statusBadge(status string) string {
 }
 
 // daftarTemplate berisi file layout + partial yang dipakai semua halaman.
+//
+// Keempat file ini dirangkai bersama file halaman menjadi satu template
+// sehingga setiap halaman otomatis memakai sidebar, header, dan footer yang sama.
 var daftarTemplate = []string{
 	"templates/layout.html",
 	"templates/header.html",
@@ -80,8 +89,13 @@ var daftarTemplate = []string{
 }
 
 // render mem-parse layout, partial, dan halaman lalu mengeksekusinya.
+//
 // Parsing dilakukan per-request supaya perubahan template langsung terlihat
 // tanpa perlu restart server (cukup untuk kebutuhan tugas akhir).
+//
+// Konvensi template: layout.html mendefinisikan {{define "layout"}}, sedangkan
+// setiap file halaman hanya mendefinisikan {{define "content"}} yang berisi
+// isi halaman. Template dieksekusi lewat ExecuteTemplate(w, "layout", view).
 func (a *App) render(w http.ResponseWriter, page string, view View) {
 	files := append(append([]string{}, daftarTemplate...), "templates/"+page)
 

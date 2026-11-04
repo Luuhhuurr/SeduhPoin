@@ -364,7 +364,7 @@ var ErrPoinMelebihiBatas = errors.New("jumlah poin yang ditukar melebihi batas t
 // Urutan (WAJIB):
 //  1. subtotal = Σ harga × jumlah
 //  2. promo produk: B2G1 dulu, lalu diskon % produk
-//  3. salah satu: voucher ATAU potongan minimal belanja
+//  3. salah satu: voucher ATAU potongan minimal belanja (BR-11, tidak digabung)
 //  4. totalSetelahPromo (minimal Rp0) = dasar poin & batas tukar
 //  5. tukar poin -> totalBayar
 //  6. poin diperoleh dari total setelah promo
@@ -449,7 +449,9 @@ func Hitung(items []Item, promos []PromoAturan, voucher *PromoAturan, poinTukar,
 	}
 	hasil.TotalSetelahPromoProduk = TotalSetelahPromoProduk(hasil.Items)
 
-	// 3. Voucher ATAU potongan minimal belanja (tidak boleh digabung)
+	// 3. Voucher ATAU potongan minimal belanja (tidak boleh digabung - BR-11).
+	// Bila kode voucher diisi, potongan minimal belanja sengaja dilewati;
+	// promo produk (diskon % dan B2G1) tetap boleh digabung dengan keduanya.
 	if voucher != nil {
 		potongan := TerapkanVoucher(hasil.TotalSetelahPromoProduk, voucher.NilaiNominal)
 		hasil.Rincian = append(hasil.Rincian, RincianPromo{

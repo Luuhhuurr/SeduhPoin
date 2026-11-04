@@ -17,6 +17,10 @@ func (a *App) registerRiwayat(mux *http.ServeMux) {
 }
 
 // daftarRiwayat menampilkan daftar transaksi dengan filter tanggal dan cabang.
+//
+// Transaksi BATAL tetap ditampilkan di riwayat (dengan penanda status),
+// namun TIDAK dihitung dalam laporan karena laporan hanya menghitung
+// transaksi berstatus SELESAI (BR-14).
 func (a *App) daftarRiwayat(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	query := r.URL.Query()
@@ -103,6 +107,9 @@ func (a *App) detailRiwayat(w http.ResponseWriter, r *http.Request) {
 //
 // Pembatalan berjalan dalam satu sql.Tx di store: transaksi menjadi BATAL,
 // poin perolehan ditarik, poin tukar dikembalikan, dan kuota voucher kembali.
+//
+// Pembatalan bersifat utuh (bukan parsial) dan data transaksi TIDAK dihapus,
+// sehingga riwayat tetap dapat ditelusuri.
 func (a *App) batalkanTransaksi(w http.ResponseWriter, r *http.Request) {
 	id, err := idDariPath(r)
 	if err != nil {

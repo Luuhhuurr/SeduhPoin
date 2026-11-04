@@ -6,6 +6,10 @@ import (
 )
 
 // promoDasar membuat promo yang berlaku sepanjang hari di semua cabang.
+//
+// Objek ini adalah "kasus normal": aktif, masa berlaku 1 tahun, tanpa jam
+// dan tanpa pembatasan cabang. Setiap test di bawahnya mengubah satu aspek
+// saja supaya penyebab kegagalan jelas ketika test gagal.
 func promoDasar() Promo {
 	return Promo{
 		ID:         1,
@@ -19,6 +23,9 @@ func promoDasar() Promo {
 }
 
 // TestBerlakuPadaMasaBerlaku menguji promo hanya berlaku di antara tanggal awal dan akhir.
+//
+// Membuktikan aturan BR: promo tidak boleh dipakai sebelum tgl_mulai maupun
+// sesudah tgl_selesai.
 func TestBerlakuPadaMasaBerlaku(t *testing.T) {
 	p := promoDasar()
 
@@ -38,6 +45,9 @@ func TestBerlakuPadaMasaBerlaku(t *testing.T) {
 }
 
 // TestBerlakuPadaJam menguji pembatasan jam (kosong = sepanjang hari).
+//
+// Membuktikan aturan BR: jam promo bersifat opsional; bila diisi, promo hanya
+// berlaku dalam rentang jam tersebut dan jam_selesai masih termasuk berlaku.
 func TestBerlakuPadaJam(t *testing.T) {
 	p := promoDasar()
 	p.JamMulai = "06:00:00"
@@ -66,6 +76,9 @@ func TestBerlakuPadaJam(t *testing.T) {
 }
 
 // TestBerlakuPadaCabang menguji pembatasan cabang (kosong = semua cabang).
+//
+// Membuktikan aturan BR: promo dapat dibatasi untuk cabang tertentu saja,
+// dan daftar cabang kosong berarti berlaku untuk seluruh cabang.
 func TestBerlakuPadaCabang(t *testing.T) {
 	p := promoDasar()
 	waktu := time.Date(2026, 6, 15, 10, 0, 0, 0, time.UTC)
@@ -86,6 +99,9 @@ func TestBerlakuPadaCabang(t *testing.T) {
 }
 
 // TestBerlakuPadaStatusAktif menguji promo nonaktif tidak dapat dipakai.
+//
+// Membuktikan aturan BR: menonaktifkan promo langsung menonaktifkannya juga
+// pada form transaksi, tanpa perlu menghapus datanya.
 func TestBerlakuPadaStatusAktif(t *testing.T) {
 	p := promoDasar()
 	waktu := time.Date(2026, 6, 15, 10, 0, 0, 0, time.UTC)
