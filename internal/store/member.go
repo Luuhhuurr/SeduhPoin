@@ -13,9 +13,13 @@ import (
 var ErrMemberTidakDitemukan = errors.New("member dengan nomor HP tersebut tidak ditemukan")
 
 // DaftarMember mengembalikan seluruh member aktif.
+//
+// Soft delete: member yang dihapus ditandai deleted_at dan disembunyikan dari
+// daftar, tetapi tetap tertaut dari transaksi lamanya.
 func (s *Store) DaftarMember(ctx context.Context, keyword string) ([]models.Member, error) {
 	query := `SELECT id, no_hp, nama, tgl_daftar, deleted_at FROM member WHERE deleted_at IS NULL`
 	args := []any{}
+	// Pencarian mencocokkan nomor HP maupun nama.
 	if keyword != "" {
 		query += ` AND (no_hp LIKE ? OR nama LIKE ?)`
 		like := "%" + keyword + "%"
@@ -40,6 +44,8 @@ func (s *Store) DaftarMember(ctx context.Context, keyword string) ([]models.Memb
 }
 
 // AmbilMember mengambil satu member berdasarkan id.
+//
+// Tidak memfilter deleted_at agar member pada transaksi lama tetap terbaca.
 func (s *Store) AmbilMember(ctx context.Context, id int64) (models.Member, error) {
 	var m models.Member
 	var deleted sql.NullTime
@@ -54,6 +60,10 @@ func (s *Store) AmbilMember(ctx context.Context, id int64) (models.Member, error
 }
 
 // CariMemberByNoHP mencari member terdaftar berdasarkan nomor HP (dipakai di form transaksi).
+//
+// Nomor HP adalah kunci pencarian member di layar kasir: mengetik nomor HP
+// akan mencari member, dan hanya member terdaftar yang memperoleh serta
+// menukar poin (non-member tetap boleh memakai promo).
 func (s *Store) CariMemberByNoHP(ctx context.Context, noHP string) (models.Member, error) {
 	var m models.Member
 	var deleted sql.NullTime
@@ -61,6 +71,8 @@ func (s *Store) CariMemberByNoHP(ctx context.Context, noHP string) (models.Membe
 		`SELECT id, no_hp, nama, tgl_daftar, deleted_at FROM member
 		 WHERE no_hp = ? AND deleted_at IS NULL`, noHP).
 		Scan(&m.ID, &m.NoHP, &m.Nama, &m.TglDaftar, &deleted)
+	// Tidak ditemukan dikembalikan sebagai error agar handler bisa memberi
+	// pesan ramah, bukan panic.
 	if errors.Is(err, sql.ErrNoRows) {
 		return m, ErrMemberTidakDitemukan
 	}
@@ -68,6 +80,9 @@ func (s *Store) CariMemberByNoHP(ctx context.Context, noHP string) (models.Membe
 }
 
 // SimpanMember menyimpan member baru dan mengembalikan id-nya.
+//
+// no_hp UNIQUE di database; pengecekan ganda tetap dilakukan di handler agar
+// pesannya ramah.
 func (s *Store) SimpanMember(ctx context.Context, m models.Member) (int64, error) {
 	res, err := s.Exec(ctx,
 		`INSERT INTO member (no_hp, nama, tgl_daftar) VALUES (?, ?, ?)`,
@@ -87,12 +102,17 @@ func (s *Store) UbahMember(ctx context.Context, m models.Member) error {
 }
 
 // HapusMember melakukan soft delete (data tidak dihapus dari tabel).
+//
+// Poin lot milik member ini tidak ikut terhapus; hanya member yang disembunyikan
+// dari daftar.
 func (s *Store) HapusMember(ctx context.Context, id int64) error {
 	_, err := s.Exec(ctx, `UPDATE member SET deleted_at = NOW() WHERE id = ?`, id)
 	return err
 }
 
 // NoHPDipakai memeriksa apakah nomor HP sudah dipakai member lain.
+//
+// kecualiID mengecualikan member yang sedang diubah.
 func (s *Store) NoHPDipakai(ctx context.Context, noHP string, kecualiID int64) (bool, error) {
 	var n int
 	err := s.DB.QueryRowContext(ctx,
@@ -107,7 +127,10 @@ func TglDaftarDefault() time.Time {
 }
 
 // Belanja3Bulan menjumlahkan nilai transaksi selesai milik member dalam rentang tertentu.
+//
 // Nilai ini menjadi dasar perhitungan tingkat member (Silver/Gold).
+// Yang dijumlahkan adalah total_setelah_promo, dan hanya transaksi SELESAI —
+// transaksi BATAL tidak boleh memengaruhi tingkat member.
 func (s *Store) Belanja3Bulan(ctx context.Context, memberID int64, batas time.Time) (int64, error) {
 	var total int64
 	err := s.DB.QueryRowContext(ctx, `
@@ -119,6 +142,8 @@ func (s *Store) Belanja3Bulan(ctx context.Context, memberID int64, batas time.Ti
 
 // Belanja3BulanSemuaMember menghitung belanja 3 bulan terakhir untuk seluruh member
 // dan mengembalikan peta memberID -> total belanja.
+//
+// Dipakai daftar member supaya cukup satu query, bukan satu query per member.
 func (s *Store) Belanja3BulanSemuaMember(ctx context.Context, batas time.Time) (map[int64]int64, error) {
 	rows, err := s.Query(ctx, `
 		SELECT member_id, COALESCE(SUM(total_setelah_promo), 0) FROM transaksi

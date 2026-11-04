@@ -20,6 +20,9 @@ func (a *App) registerProduk(mux *http.ServeMux) {
 }
 
 // daftarProduk menampilkan katalog produk.
+//
+// Filter ?q= (kata kunci kode/nama) dan ?kategori= disusun di sini sebagai
+// parameter query; seluruh SQL berada di internal/store.
 func (a *App) daftarProduk(w http.ResponseWriter, r *http.Request) {
 	keyword := strings.TrimSpace(r.URL.Query().Get("q"))
 	kategori := strings.TrimSpace(r.URL.Query().Get("kategori"))
@@ -29,6 +32,7 @@ func (a *App) daftarProduk(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat daftar produk", err.Error())
 		return
 	}
+	// Daftar kategori diambil dari data produk yang ada, bukan dari tabel terpisah.
 	kategoriList, err := a.Store.DaftarKategori(r.Context())
 	if err != nil {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat daftar kategori", err.Error())
@@ -48,6 +52,9 @@ func (a *App) daftarProduk(w http.ResponseWriter, r *http.Request) {
 }
 
 // formProduk menampilkan form tambah / ubah produk.
+//
+// Kategori yang sudah dipakai produk lain juga ditampilkan sebagai pilihan,
+// sehingga kategori tetap konsisten antar transaksi (kategori dipakai promo B2G1).
 func (a *App) formProduk(w http.ResponseWriter, r *http.Request) {
 	var p models.Produk
 	mode := "tambah"
@@ -83,6 +90,9 @@ func (a *App) formProduk(w http.ResponseWriter, r *http.Request) {
 }
 
 // simpanProduk memproses penyimpanan produk (tambah maupun ubah).
+//
+// Harga memakai int64 (rupiah bulat). Nominal tidak pernah memakai float
+// sehingga tidak ada galat pembulatan pada perhitungan promo dan poin.
 func (a *App) simpanProduk(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		pesanError(w, http.StatusBadRequest, "Data form tidak valid", err.Error())
@@ -104,6 +114,7 @@ func (a *App) simpanProduk(w http.ResponseWriter, r *http.Request) {
 		p.ID = id
 	}
 
+	// Validasi server-side: semua aturan ditegakkan di sini, bukan hanya di HTML.
 	if p.Kode == "" {
 		redirect(w, r, "/produk/tambah", "Kode produk wajib diisi.")
 		return
@@ -116,6 +127,8 @@ func (a *App) simpanProduk(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/produk/tambah", "Kategori produk wajib diisi.")
 		return
 	}
+	// Harga harus bulat positif; 0 atau negatif ditolak karena akan merusak
+	// perhitungan subtotal dan promo.
 	if p.Harga <= 0 {
 		redirect(w, r, "/produk/tambah", "Harga harus berupa bilangan bulat lebih besar dari 0.")
 		return
@@ -130,6 +143,7 @@ func (a *App) simpanProduk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ID == 0 berarti data baru (tambah); selain itu berarti ubah.
 	if p.ID == 0 {
 		id, err := a.Store.SimpanProduk(r.Context(), p)
 		if err != nil {
@@ -168,6 +182,9 @@ func (a *App) detailProduk(w http.ResponseWriter, r *http.Request) {
 }
 
 // hapusProduk melakukan soft delete produk.
+//
+// Baris tabel tidak dihapus melainkan ditandai deleted_at, supaya transaksi
+// lama tetap menampilkan nama & harga produk yang waktu itu digunakan.
 func (a *App) hapusProduk(w http.ResponseWriter, r *http.Request) {
 	id, err := idDariPath(r)
 	if err != nil {

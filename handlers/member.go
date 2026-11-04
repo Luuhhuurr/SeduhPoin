@@ -11,6 +11,9 @@ import (
 )
 
 // memberRow adalah data member beserta tingkat dan total belanja 3 bulan.
+//
+// Tingkat TIDAK disimpan sebagai kolom di tabel member; ia dihitung ulang
+// setiap kali ditampilkan dari transaksi 3 bulan terakhir.
 type memberRow struct {
 	Member  models.Member
 	Tingkat string
@@ -29,6 +32,9 @@ func (a *App) registerMember(mux *http.ServeMux) {
 }
 
 // daftarMember menampilkan daftar member dengan tingkat dan belanja 3 bulan.
+//
+// Satu query agregat menghitung belanja seluruh member sekaligus (GROUP BY),
+// sehingga tidak ada query per baris daftar.
 func (a *App) daftarMember(w http.ResponseWriter, r *http.Request) {
 	keyword := strings.TrimSpace(r.URL.Query().Get("q"))
 
@@ -37,6 +43,7 @@ func (a *App) daftarMember(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat daftar member", err.Error())
 		return
 	}
+	// Batas bawah rentang 3 bulan; ambang Gold Rp1.500.000 (lihat calc.TingkatMember).
 	batas := calc.BatasTier(format.HariIni())
 	belanja, err := a.Store.Belanja3BulanSemuaMember(r.Context(), batas)
 	if err != nil {
@@ -85,7 +92,8 @@ func (a *App) formMember(w http.ResponseWriter, r *http.Request) {
 	} else {
 		m.TglDaftar = format.HariIni()
 	}
-	// Nomor HP dapat diisi dari halaman transaksi (?no_hp=...).
+	// Nomor HP dapat diisi dari halaman transaksi (?no_hp=...): kasir mengetik
+	// nomor HP di form transaksi, lalu diarahkan ke sini untuk mendaftar.
 	if raw := r.URL.Query().Get("no_hp"); raw != "" && mode == "tambah" {
 		m.NoHP = raw
 	}
@@ -102,6 +110,10 @@ func (a *App) formMember(w http.ResponseWriter, r *http.Request) {
 }
 
 // simpanMember memproses penyimpanan member (tambah maupun ubah).
+//
+// Nomor HP adalah identitas member: unik dan hanya boleh berisi angka
+// (validasi againAngka). Pencarian member pada form transaksi memakai nomor HP
+// ini; hanya member terdaftar yang memperoleh dan menukar poin.
 func (a *App) simpanMember(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		pesanError(w, http.StatusBadRequest, "Data form tidak valid", err.Error())
@@ -131,6 +143,7 @@ func (a *App) simpanMember(w http.ResponseWriter, r *http.Request) {
 		m.ID = id
 	}
 
+	// Validasi server-side nomor HP: wajib diisi, hanya angka, dan unik.
 	if m.NoHP == "" {
 		redirect(w, r, "/member/tambah", "Nomor HP wajib diisi.")
 		return
@@ -153,6 +166,7 @@ func (a *App) simpanMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ID == 0 berarti data baru (tambah); selain itu berarti ubah.
 	if m.ID == 0 {
 		id, err := a.Store.SimpanMember(r.Context(), m)
 		if err != nil {
@@ -170,6 +184,9 @@ func (a *App) simpanMember(w http.ResponseWriter, r *http.Request) {
 }
 
 // detailMember menampilkan rincian satu member.
+//
+// Tingkat dihitung on-the-fly dari total belanja 3 bulan terakhir atas
+// transaksi berstatus SELESAI (transaksi BATAL tidak dihitung).
 func (a *App) detailMember(w http.ResponseWriter, r *http.Request) {
 	id, err := idDariPath(r)
 	if err != nil {
@@ -198,6 +215,9 @@ func (a *App) detailMember(w http.ResponseWriter, r *http.Request) {
 }
 
 // hapusMember melakukan soft delete member.
+//
+// Member yang dihapus tidak hilang dari riwayat: transaksi lamanya tetap
+// menyimpan salinan nama dan nomor HP.
 func (a *App) hapusMember(w http.ResponseWriter, r *http.Request) {
 	id, err := idDariPath(r)
 	if err != nil {
@@ -212,6 +232,9 @@ func (a *App) hapusMember(w http.ResponseWriter, r *http.Request) {
 }
 
 // hanyaAngka memeriksa apakah seluruh karakter string berupa angka.
+//
+// Dipakai untuk memvalidasi nomor HP member (hanya angka, tanpa spasi,
+// tanda hubung, atau awalan +62).
 func hanyaAngka(s string) bool {
 	if s == "" {
 		return false

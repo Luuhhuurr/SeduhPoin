@@ -8,9 +8,14 @@ import (
 )
 
 // DaftarCabang mengembalikan seluruh cabang yang belum dihapus.
+//
+// Soft delete: baris yang dihapus ditandai deleted_at dan tidak pernah
+// dihapus fisik, sehingga transaksi lama tetap bisa merujuk cabangnya.
+// Karena itu setiap query daftar master data memfilter deleted_at IS NULL.
 func (s *Store) DaftarCabang(ctx context.Context, keyword string) ([]models.Cabang, error) {
 	query := `SELECT id, kode, nama, alamat, telepon, deleted_at FROM cabang WHERE deleted_at IS NULL`
 	args := []any{}
+	// Pencarian memakai LIKE pada kode maupun nama.
 	if keyword != "" {
 		query += ` AND (kode LIKE ? OR nama LIKE ?)`
 		like := "%" + keyword + "%"
@@ -26,6 +31,7 @@ func (s *Store) DaftarCabang(ctx context.Context, keyword string) ([]models.Caba
 		var c models.Cabang
 		var deleted sql.NullTime
 		err := r.Scan(&c.ID, &c.Kode, &c.Nama, &c.Alamat, &c.Telepon, &deleted)
+		// Kolom deleted_at nullable: NULL berarti data masih aktif.
 		if deleted.Valid {
 			t := deleted.Time
 			c.DeletedAt = &t
@@ -35,6 +41,9 @@ func (s *Store) DaftarCabang(ctx context.Context, keyword string) ([]models.Caba
 }
 
 // AmbilCabang mengambil satu cabang berdasarkan id.
+//
+// Sengaja tidak memfilter deleted_at, agar rincian transaksi lama yang menunjuk
+// cabang ini tetap bisa ditampilkan.
 func (s *Store) AmbilCabang(ctx context.Context, id int64) (models.Cabang, error) {
 	var c models.Cabang
 	var deleted sql.NullTime
@@ -49,6 +58,8 @@ func (s *Store) AmbilCabang(ctx context.Context, id int64) (models.Cabang, error
 }
 
 // SimpanCabang menyimpan cabang baru dan mengembalikan id-nya.
+//
+// INSERT memakai placeholder (?) agar aman dari SQL injection.
 func (s *Store) SimpanCabang(ctx context.Context, c models.Cabang) (int64, error) {
 	res, err := s.Exec(ctx,
 		`INSERT INTO cabang (kode, nama, alamat, telepon) VALUES (?, ?, ?, ?)`,
@@ -68,12 +79,17 @@ func (s *Store) UbahCabang(ctx context.Context, c models.Cabang) error {
 }
 
 // HapusCabang melakukan soft delete (data tidak dihapus dari tabel).
+//
+// Hanya mengisi kolom deleted_at; tidak ada perintah DELETE sama sekali.
 func (s *Store) HapusCabang(ctx context.Context, id int64) error {
 	_, err := s.Exec(ctx, `UPDATE cabang SET deleted_at = NOW() WHERE id = ?`, id)
 	return err
 }
 
 // KodeCabangDipakai memeriksa apakah kode cabang sudah dipakai.
+//
+// kecualiID dipakai agar saat mengubah data, kode miliknya sendiri tidak
+// dianggap bentrok.
 func (s *Store) KodeCabangDipakai(ctx context.Context, kode string, kecualiID int64) (bool, error) {
 	var n int
 	err := s.DB.QueryRowContext(ctx,

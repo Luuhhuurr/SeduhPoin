@@ -1,5 +1,13 @@
 package store
 
+// Catatan arsitektur (pola yang dipakai di seluruh package store):
+//   - SELECT         : s.Query / s.DB.QueryRowContext
+//   - INSERT/UPDATE  : s.Exec
+//   - ScanRows       : pembantu memindai seluruh baris ke slice
+//
+// Tulis-manyok (transaksi & pembatalan) selalu dibungkus s.Begin (sql.Tx)
+// agar bersifat atomik.
+
 import (
 	"context"
 	"time"
@@ -8,6 +16,9 @@ import (
 )
 
 // Dashboard berisi ringkasan angka untuk halaman depan.
+//
+// Semua angka dihitung ulang dari tabel (bukan kolom tersimpan), sehingga
+// selalu sesuai dengan data terkini.
 type Dashboard struct {
 	JumlahCabang           int
 	JumlahProduk           int
@@ -20,11 +31,18 @@ type Dashboard struct {
 }
 
 // AmbilDashboard gathers ringkasan untuk halaman dashboard.
+//
+// Aturan perhitungan ringkasan:
+//   - Jumlah cabang/produk/member: hanya yang belum di-soft delete (deleted_at IS NULL).
+//   - Transaksi hari ini & omzet: hanya status SELESAI (transaksi BATAL dikeluarkan).
+//   - Jumlah Gold/Silver: dihitung on-the-fly dari belanja 3 bulan terakhir.
 func (s *Store) AmbilDashboard(ctx context.Context, hariIni time.Time) (Dashboard, error) {
 	var d Dashboard
+	// Rentang "hari ini" dibatasi [mulai, akhir) agar aman dari data antar hari.
 	mulai := hariIni
 	akhir := hariIni.Add(24 * time.Hour)
 
+	// Pembantu untuk query COUNT(*) yang hanya butuh satu angka.
 	hitung := func(query string, args ...any) (int, error) {
 		var n int
 		err := s.DB.QueryRowContext(ctx, query, args...).Scan(&n)
@@ -32,6 +50,7 @@ func (s *Store) AmbilDashboard(ctx context.Context, hariIni time.Time) (Dashboar
 	}
 
 	var err error
+	// Master data: baris yang di-soft delete tidak dihitung.
 	if d.JumlahCabang, err = hitung(`SELECT COUNT(*) FROM cabang WHERE deleted_at IS NULL`); err != nil {
 		return d, err
 	}
@@ -41,11 +60,13 @@ func (s *Store) AmbilDashboard(ctx context.Context, hariIni time.Time) (Dashboar
 	if d.JumlahMember, err = hitung(`SELECT COUNT(*) FROM member WHERE deleted_at IS NULL`); err != nil {
 		return d, err
 	}
+	// Transaksi hari ini: hanya yang berstatus SELESAI.
 	if d.JumlahTransaksiHariIni, err = hitung(
 		`SELECT COUNT(*) FROM transaksi WHERE status='SELESAI' AND tanggal_transaksi >= ? AND tanggal_transaksi < ?`,
 		mulai, akhir); err != nil {
 		return d, err
 	}
+	// Omzet memakai total_bayar (sudah termasuk penukaran poin).
 	if err := s.DB.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(total_bayar),0) FROM transaksi WHERE status='SELESAI' AND tanggal_transaksi >= ? AND tanggal_transaksi < ?`,
 		mulai, akhir).Scan(&d.OmzetHariIni); err != nil {
@@ -53,6 +74,7 @@ func (s *Store) AmbilDashboard(ctx context.Context, hariIni time.Time) (Dashboar
 	}
 
 	// Tingkat member dihitung on-the-fly dari belanja 3 bulan terakhir.
+	// Basic: total_setelah_promo (bukan total_bayar) dan ambang Gold Rp1.500.000.
 	batas := hariIni.AddDate(0, -3, 0)
 	if d.JumlahGold, err = hitung(`
 		SELECT COUNT(*) FROM member m
@@ -71,7 +93,7 @@ func (s *Store) AmbilDashboard(ctx context.Context, hariIni time.Time) (Dashboar
 		return d, err
 	}
 
-	// 5 transaksi terakhir
+	// 5 transaksi terakhir (termasuk yang BATAL agar kasir melihat riwayatnya).
 	rows, err := s.Query(ctx, `
 		SELECT t.id, t.kode, t.tanggal_transaksi, t.total_bayar, t.status,
 		       c.nama, COALESCE(m.nama, '-')

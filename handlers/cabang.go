@@ -9,6 +9,9 @@ import (
 )
 
 // registerCabang mendaftarkan rute CRUD cabang.
+//
+// Pola rute memakai pola net/http Go 1.22+ sehingga metode dan parameter path
+// ditulis langsung di string ("GET /cabang/{id}"), tanpa router pihak ketiga.
 func (a *App) registerCabang(mux *http.ServeMux) {
 	mux.HandleFunc("GET /cabang", a.withDB(a.daftarCabang))
 	mux.HandleFunc("GET /cabang/tambah", a.withDB(a.formCabang))
@@ -20,6 +23,8 @@ func (a *App) registerCabang(mux *http.ServeMux) {
 }
 
 // daftarCabang menampilkan daftar seluruh cabang.
+//
+// Pencarian memakai parameter ?q= dan dicocokkan pada kode maupun nama.
 func (a *App) daftarCabang(w http.ResponseWriter, r *http.Request) {
 	keyword := strings.TrimSpace(r.URL.Query().Get("q"))
 	daftar, err := a.Store.DaftarCabang(r.Context(), keyword)
@@ -39,6 +44,9 @@ func (a *App) daftarCabang(w http.ResponseWriter, r *http.Request) {
 }
 
 // formCabang menampilkan form tambah / ubah cabang.
+//
+// Satu handler dipakai untuk dua keperluan: bila path memuat {id} maka mode
+// "edit" (data lama dimuat), selain itu mode "tambah".
 func (a *App) formCabang(w http.ResponseWriter, r *http.Request) {
 	var c models.Cabang
 	var mode string
@@ -71,6 +79,10 @@ func (a *App) formCabang(w http.ResponseWriter, r *http.Request) {
 }
 
 // simpanCabang memproses penyimpanan cabang (tambah maupun ubah).
+//
+// Pola yang dipakai di semua master data: validasi di sisi server (bukan hanya
+// atribut "required" di HTML), lalu bila gagal pengguna diarahkan kembali ke
+// form dengan pesan ramah. Server tidak pernah dimatikan karena input salah.
 func (a *App) simpanCabang(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		pesanError(w, http.StatusBadRequest, "Data form tidak valid", err.Error())
@@ -100,6 +112,8 @@ func (a *App) simpanCabang(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/cabang/tambah", "Nama cabang wajib diisi.")
 		return
 	}
+	// Kode cabang bersifat unik; dicek lebih dulu agar pesan yang muncul
+	// ramah, bukan error unik dari database.
 	dipakai, err := a.Store.KodeCabangDipakai(r.Context(), c.Kode, c.ID)
 	if err != nil {
 		pesanError(w, http.StatusInternalServerError, "Gagal memeriksa kode cabang", err.Error())
@@ -110,6 +124,7 @@ func (a *App) simpanCabang(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ID == 0 berarti data baru (tambah); selain itu berarti ubah.
 	if c.ID == 0 {
 		id, err := a.Store.SimpanCabang(r.Context(), c)
 		if err != nil {
@@ -148,6 +163,10 @@ func (a *App) detailCabang(w http.ResponseWriter, r *http.Request) {
 }
 
 // hapusCabang melakukan soft delete cabang.
+//
+// Baris tabel tidak dihapus, melainkan ditandai deleted_at. Ini diperlukan
+// karena transaksi lama harus tetap menampilkan nama cabang/produk/member
+// sewaktu-waktu.
 func (a *App) hapusCabang(w http.ResponseWriter, r *http.Request) {
 	id, err := idDariPath(r)
 	if err != nil {
