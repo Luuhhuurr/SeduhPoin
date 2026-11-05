@@ -1,0 +1,43 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Ganti Kata Sandi</h1>
+  <p class="deskripsi">
+    Kata sandi untuk akun <b>{{.Data.Identitas.Nama}}</b>.
+    {{if .Data.Wajib}}Akun ini masih memakai kata sandi awal, jadi Anda wajib menggantinya sekarang.{{end}}
+  </p>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <tbody>
+        <tr><th style="width:220px">Nama</th><td>{{.Data.Identitas.Nama}}</td></tr>
+        <tr><th>Peran</th><td>{{labelPeran .Data.Identitas.Peran}}</td></tr>
+        <tr><th>Username / Nomor HP</th><td>{{.Data.Identitas.Username}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" action="/akun/sandi" class="formulir">
+    {{if .Data.Wajib}}
+    <input type="hidden" name="saya" value="1">
+    {{end}}
+    <div class="baris-form">
+      <label for="sandi_lama">Kata Sandi Lama</label>
+      <input type="password" id="sandi_lama" name="sandi_lama" autocomplete="current-password">
+      <p class="petunjuk">Wajib diisi: kata sandi lama Anda sebagai verifikasi.</p>
+    </div>
+    <div class="baris-form">
+      <label for="sandi_baru">Kata Sandi Baru <span class="wajib">*</span></label>
+      <input type="password" id="sandi_baru" name="sandi_baru" autocomplete="new-password" minlength="6" required>
+      <p class="petunjuk">Minimal 6 karakter.</p>
+    </div>
+    <div class="baris-form">
+      <label for="sandi_ulang">Ulangi Kata Sandi Baru <span class="wajib">*</span></label>
+      <input type="password" id="sandi_ulang" name="sandi_ulang" autocomplete="new-password" minlength="6" required>
+    </div>
+    <div class="tombol-aksi">
+      <button type="submit">Simpan Kata Sandi</button>
+      <a href="{{if .Data.Wajib}}/{{else}}/akun/sandi{{end}}" class="tombol tombol-abu">Batal</a>
+    </div>
+  </form>
+</div>
+{{end}}

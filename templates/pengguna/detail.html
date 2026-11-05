@@ -1,0 +1,61 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{.Data.Pengguna.Nama}}</h1>
+  <p class="deskripsi">Rincian akun staf (username {{.Data.Pengguna.Username}}).</p>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <tbody>
+        <tr><th style="width:220px">Username</th><td>{{.Data.Pengguna.Username}}</td></tr>
+        <tr><th>Nama</th><td>{{.Data.Pengguna.Nama}}</td></tr>
+        <tr><th>Peran</th><td>{{labelPeran .Data.Pengguna.Role}}</td></tr>
+        <tr>
+          <th>Status</th>
+          <td>
+            {{if .Data.Pengguna.Aktif}}
+              <span class="badge badge-ok">Aktif</span>
+            {{else}}
+              <span class="badge badge-grey">Nonaktif</span>
+            {{end}}
+          </td>
+        </tr>
+        <tr><th>Dibuat</th><td>{{tanggalSingkat .Data.Pengguna.CreatedAt}}</td></tr>
+        <tr><th>Login Terakhir</th><td>{{if .Data.Pengguna.LastLoginAt}}{{tanggalSingkat .Data.Pengguna.LastLoginAt}}{{else}}Belum pernah{{end}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="judul-bagian">Atur Ulang Kata Sandi</h2>
+  <p class="deskripsi">
+    Sesi aktif akun ini akan dicabut, dan pengguna wajib memilih kata sandi baru
+    saat login berikutnya.
+  </p>
+  <form method="post" action="/pengguna/{{.Data.Pengguna.ID}}/sandi" class="formulir">
+    <div class="baris-form">
+      <label for="sandi">Kata Sandi Baru</label>
+      <input type="password" id="sandi" name="sandi" autocomplete="new-password" minlength="6" required>
+      <p class="petunjuk">Minimal 6 karakter.</p>
+    </div>
+    <div class="tombol-aksi">
+      <button type="submit">Ganti Kata Sandi</button>
+    </div>
+  </form>
+
+  <h2 class="judul-bagian">Status Akun</h2>
+  <div class="tombol-aksi">
+    {{if .Data.Pengguna.Aktif}}
+    <form method="post" action="/pengguna/{{.Data.Pengguna.ID}}/status" onsubmit="return confirm('Nonaktifkan akun ini? Semua sesinya akan dicabut.')">
+      <input type="hidden" name="aktif" value="0">
+      <button type="submit" class="tombol tombol-batal">Nonaktifkan Akun</button>
+    </form>
+    {{else}}
+    <form method="post" action="/pengguna/{{.Data.Pengguna.ID}}/status">
+      <input type="hidden" name="aktif" value="1">
+      <button type="submit" class="tombol tombol-ok">Aktifkan Akun</button>
+    </form>
+    {{end}}
+    <a href="/pengguna/{{.Data.Pengguna.ID}}/edit" class="tombol">Ubah Data</a>
+    <a href="/pengguna" class="tombol tombol-abu">Kembali ke Daftar</a>
+  </div>
+</div>
+{{end}}

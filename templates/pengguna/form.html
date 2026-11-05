@@ -1,0 +1,45 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">{{if eq .Data.Mode "edit"}}Ubah Akun{{else}}Tambah Akun{{end}}</h1>
+  <p class="deskripsi">
+    Username harus unik. Akun yang baru dibuat wajib mengganti kata sandi awal
+    pada login pertama.
+  </p>
+
+  <form method="post" action="{{if eq .Data.Mode "edit"}}/pengguna/{{.Data.Pengguna.ID}}/edit{{else}}/pengguna/tambah{{end}}" class="formulir">
+    <div class="dua-kolom">
+      <div class="baris-form">
+        <label for="username">Username <span class="wajib">*</span></label>
+        <input type="text" id="username" name="username" value="{{.Data.Pengguna.Username}}" maxlength="30" required {{if eq .Data.Mode "edit"}}readonly{{end}}>
+        <p class="petunjuk">Tanpa spasi, huruf kecil. {{if eq .Data.Mode "edit"}}Username tidak dapat diubah setelah dibuat.{{end}}</p>
+      </div>
+      <div class="baris-form">
+        <label for="nama">Nama Lengkap <span class="wajib">*</span></label>
+        <input type="text" id="nama" name="nama" value="{{.Data.Pengguna.Nama}}" maxlength="100" required>
+      </div>
+    </div>
+
+    <div class="baris-form">
+      <label for="role">Peran <span class="wajib">*</span></label>
+      <select id="role" name="role">
+        <option value="KASIR" {{if eq .Data.Pengguna.Role "KASIR"}}selected{{end}}>Kasir</option>
+        <option value="ADMIN" {{if eq .Data.Pengguna.Role "ADMIN"}}selected{{end}}>Administrator</option>
+      </select>
+      <p class="petunjuk">Kasir__: operasional harian. Admin: operasional + kelola akun staf.</p>
+    </div>
+
+    {{if eq .Data.Mode "tambah"}}
+    <div class="baris-form">
+      <label for="sandi">Kata Sandi Awal <span class="wajib">*</span></label>
+      <input type="password" id="sandi" name="sandi" autocomplete="new-password" minlength="6" required>
+      <p class="petunjuk">Minimal 6 karakter. Pengguna harus menggantinya saat login pertama.</p>
+    </div>
+    {{end}}
+
+    <div class="tombol-aksi">
+      <button type="submit">Simpan</button>
+      <a href="/pengguna" class="tombol tombol-abu">Batal</a>
+    </div>
+  </form>
+</div>
+{{end}}

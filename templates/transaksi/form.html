@@ -22,7 +22,11 @@
               <input type="text" id="no_hp" name="no_hp" value="{{$.Data.Form.NoHP}}" maxlength="20">
               <p class="petunjuk">
                 Member terdaftar memperoleh dan dapat menukar poin.
+                {{if .Identitas.Boleh "ADMIN"}}
                 <a href="/member/tambah?no_hp={{$.Data.Form.NoHP}}" target="_blank">Daftarkan member baru</a>
+                {{else}}
+                Pendaftaran member baru dilakukan admin.
+                {{end}}
               </p>
             </div>
           </div>

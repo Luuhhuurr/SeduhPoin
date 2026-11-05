@@ -7,7 +7,13 @@
   </div>
   <div class="header-kanan">
     <span class="jam">WIB &middot; {{now}}</span>
+    {{if .Identitas.Boleh "STAFF"}}
     <a href="/transaksi" class="tombol tombol-kecil tombol-krem">+ Transaksi Baru</a>
+    {{end}}
+    <div class="chip-pengguna">
+      <span class="chip-nama">{{.Identitas.Nama}}</span>
+      <span class="chip-peran peran-{{lower .Identitas.Peran}}">{{labelPeran .Identitas.Peran}}</span>
+    </div>
   </div>
 </header>
 {{end}}

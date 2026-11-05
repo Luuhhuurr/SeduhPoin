@@ -19,6 +19,17 @@
       <label for="nama">Nama Member <span class="wajib">*</span></label>
       <input type="text" id="nama" name="nama" value="{{.Data.Member.Nama}}" maxlength="100" required>
     </div>
+    {{if eq .Data.Mode "tambah"}}
+    <div class="baris-form">
+      <label for="sandi">Kata Sandi Awal</label>
+      <input type="password" id="sandi" name="sandi" autocomplete="new-password" minlength="6">
+      <p class="petunjuk">
+        Opsional. Isi bila member ini boleh login ke portal member
+        (minimal 6 karakter). Kosongkan bila belum; bisa diatur nanti dari
+        halaman detail member.
+      </p>
+    </div>
+    {{end}}
     <div class="tombol-aksi">
       <button type="submit">Simpan</button>
       <a href="/member" class="tombol tombol-abu">Batal</a>

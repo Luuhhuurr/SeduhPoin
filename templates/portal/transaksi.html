@@ -1,0 +1,42 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Riwayat Transaksi Saya</h1>
+  <p class="deskripsi">
+    Hanya transaksi milik akun Anda yang ditampilkan. Penukaran poin dilakukan
+    oleh kasir di cabang.
+  </p>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Tanggal</th>
+          <th>Cabang</th>
+          <th>Member</th>
+          <th class="kanan">Total</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Daftar}}
+        <tr>
+          <td><a href="/portal/transaksi/{{.ID}}">{{.Kode}}</a></td>
+          <td>{{tanggal .TanggalTransaksi}}</td>
+          <td>{{.CabangNama}}</td>
+          <td>{{.MemberNama}} <span class="ket">({{.MemberNoHP}})</span></td>
+          <td class="kanan">{{rupiah .TotalBayar}}</td>
+          <td>{{statusBadge .Status}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="kosong">Belum ada transaksi.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tombol-aksi">
+    <a href="/portal" class="tombol tombol-abu">Kembali ke Beranda</a>
+  </div>
+</div>
+{{end}}

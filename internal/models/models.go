@@ -7,6 +7,56 @@ package models
 
 import "time"
 
+// Peran pengguna untuk kontrol akses berbasis peran (RBAC).
+//
+// Peran ADMIN dan KASIR dimiliki akun pada tabel pengguna (staf),
+// sedangkan peran MEMBER adalah pemilik tabel member.
+const (
+	RoleAdmin  = "ADMIN"
+	RoleKasir  = "KASIR"
+	RoleMember = "MEMBER"
+)
+
+// Pengguna adalah akun staf aplikasi (admin atau kasir).
+//
+// PasswordHash berisi hasil bcrypt; kata sandi asli tidak pernah disimpan.
+// HarusGantiSandi dipakai untuk memaksa pengguna mengganti kata sandi
+// awal (misalnya akun demo admin) pada login pertama.
+type Pengguna struct {
+	ID              int64
+	Username        string
+	Nama            string
+	PasswordHash    string
+	Role            string
+	Aktif           bool
+	HarusGantiSandi bool
+	CreatedAt       time.Time
+	LastLoginAt     *time.Time
+}
+
+// Jenis pemilik sesi.
+const (
+	JenisPengguna = "PENGGUNA"
+	JenisMember   = "MEMBER"
+)
+
+// Sesi adalah satu sesi login aktif.
+//
+// Yang disimpan di database adalah hash SHA-256 dari token yang dikirim ke
+// browser, bukan token itu sendiri. Dengan begitu bocornya isi tabel sesi
+// tidak langsung berarti ada orang yang bisa memakai cookie tersebut.
+//
+// Logout menghapus baris sesi, sehingga token langsung tidak berlaku.
+type Sesi struct {
+	TokenHash     string
+	Jenis         string // JenisPengguna atau JenisMember
+	PenggunaID    *int64
+	MemberID      *int64
+	Peran         string // peran saat login (disalin agar tetap terbaca)
+	DibuatAt      time.Time
+	KedaluwarsaAt time.Time
+}
+
 // Cabang adalah titik penjualan (tidak ada soft delete pada level kode:
 // kolom deleted_at sudah tersedia di tabel cabang).
 type Cabang struct {
@@ -44,6 +94,11 @@ type Member struct {
 	Nama      string
 	TglDaftar time.Time
 	DeletedAt *time.Time
+
+	// PunyaAkun menandai member yang sudah punya kata sandi sehingga bisa
+	// login ke portal member. PasswordHash sendiri tidak ikut di struct
+	// ini supaya tidak terbawa ke halaman yang tidak membutuhkannya.
+	PunyaAkun bool
 }
 
 // Jenis promo (BR-09).
@@ -128,6 +183,34 @@ func (p Promo) BerlakuPada(t time.Time, cabangID int64) bool {
 	return true
 }
 
+// BerlakuPadaTanpaCabang menyatakan apakah promo berlaku pada tanggal/waktu
+// tertentu, tanpa mempertimbangkan cabang.
+//
+// Dipakai portal member: member tidak punya cabang, sehingga promo yang
+// hanya berlaku untuk cabang tertentu tetap ditampilkan sebagai informasi.
+func (p Promo) BerlakuPadaTanpaCabang(t time.Time) bool {
+	if !p.Aktif {
+		return false
+	}
+	hari := t.Format("2006-01-02")
+	if hari < p.TglMulai.Format("2006-01-02") || hari > p.TglSelesai.Format("2006-01-02") {
+		return false
+	}
+	if p.JamMulai != "" {
+		jam := t.Format("15:04:05")
+		if jam < p.JamMulai {
+			return false
+		}
+	}
+	if p.JamSelesai != "" {
+		jam := t.Format("15:04:05")
+		if jam > p.JamSelesai {
+			return false
+		}
+	}
+	return true
+}
+
 // Voucher adalah kode promo berkuota (jenis VOUCHER).
 //
 // Kuota tidak boleh pernah lebih kecil dari jumlah terpakai; hal itu
@@ -166,6 +249,8 @@ type Transaksi struct {
 	MemberID             *int64
 	MemberNama           string
 	MemberNoHP           string
+	PenggunaID           *int64 // kasir yang memproses penjualan (nil untuk data lama)
+	KasirNama            string // snapshot nama kasir saat transaksi disimpan
 	TanggalTransaksi     time.Time
 	TingkatSaatTransaksi string
 	PengaliSaatTransaksi float64

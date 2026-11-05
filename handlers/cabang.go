@@ -12,14 +12,17 @@ import (
 //
 // Pola rute memakai pola net/http Go 1.22+ sehingga metode dan parameter path
 // ditulis langsung di string ("GET /cabang/{id}"), tanpa router pihak ketiga.
+//
+// Pembagian hak akses: admin mengelola data cabang (tambah, ubah, hapus),
+// sedangkan kasir hanya boleh membaca daftar dan detail cabang.
 func (a *App) registerCabang(mux *http.ServeMux) {
-	mux.HandleFunc("GET /cabang", a.withDB(a.daftarCabang))
-	mux.HandleFunc("GET /cabang/tambah", a.withDB(a.formCabang))
-	mux.HandleFunc("POST /cabang/tambah", a.withDB(a.simpanCabang))
-	mux.HandleFunc("GET /cabang/{id}", a.withDB(a.detailCabang))
-	mux.HandleFunc("GET /cabang/{id}/edit", a.withDB(a.formCabang))
-	mux.HandleFunc("POST /cabang/{id}/edit", a.withDB(a.simpanCabang))
-	mux.HandleFunc("POST /cabang/{id}/hapus", a.withDB(a.hapusCabang))
+	mux.HandleFunc("GET /cabang", a.akses(peranStaff, a.daftarCabang))
+	mux.HandleFunc("GET /cabang/{id}", a.akses(peranStaff, a.detailCabang))
+	mux.HandleFunc("GET /cabang/tambah", a.akses(peranAdmin, a.formCabang))
+	mux.HandleFunc("POST /cabang/tambah", a.akses(peranAdmin, a.simpanCabang))
+	mux.HandleFunc("GET /cabang/{id}/edit", a.akses(peranAdmin, a.formCabang))
+	mux.HandleFunc("POST /cabang/{id}/edit", a.akses(peranAdmin, a.simpanCabang))
+	mux.HandleFunc("POST /cabang/{id}/hapus", a.akses(peranAdmin, a.hapusCabang))
 }
 
 // daftarCabang menampilkan daftar seluruh cabang.
@@ -32,7 +35,7 @@ func (a *App) daftarCabang(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat daftar cabang", err.Error())
 		return
 	}
-	a.render(w, "cabang/list.html", View{
+	a.render(w, r, "cabang/list.html", View{
 		Title: "Data Cabang",
 		Menu:  "cabang",
 		Error: ambilError(r),
@@ -67,7 +70,7 @@ func (a *App) formCabang(w http.ResponseWriter, r *http.Request) {
 		mode = "tambah"
 	}
 
-	a.render(w, "cabang/form.html", View{
+	a.render(w, r, "cabang/form.html", View{
 		Title: "Form Cabang",
 		Menu:  "cabang",
 		Error: ambilError(r),
@@ -153,7 +156,7 @@ func (a *App) detailCabang(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusNotFound, "Cabang tidak ditemukan", err.Error())
 		return
 	}
-	a.render(w, "cabang/detail.html", View{
+	a.render(w, r, "cabang/detail.html", View{
 		Title: "Detail Cabang",
 		Menu:  "cabang",
 		Data: map[string]any{

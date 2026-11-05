@@ -6,18 +6,19 @@ dan **MySQL** (XAMPP) tanpa ORM.
 
 | Aspek | Teknologi |
 |---|---|
-| Bahasa | Go (paket standar + 2 dependensi) |
+| Bahasa | Go (paket standar + 3 dependensi) |
 | Web server | `net/http` + `html/template` (bukan Gin/Echo/Fiber) |
 | Database | MySQL (XAMPP/phpMyAdmin) via `database/sql` (bukan ORM) |
 | Frontend | HTML + CSS murni (bukan React/Vue, tanpa build tool) |
-| Dependensi | `github.com/go-sql-driver/mysql`, `github.com/joho/godotenv` |
+| Autentikasi | Sesi server-side (tabel `sesi`) + kata sandi bcrypt |
+| Dependensi | `github.com/go-sql-driver/mysql`, `github.com/joho/godotenv`, `golang.org/x/crypto` |
 
 ## Daftar Isi
 
 | # | Bagian | Isi |
 |---|---|---|
 | 1 | [Setup dari Nol](#1-setup-dari-nol) | XAMPP, import `schema.sql`, isi `.env`, jalankan |
-| 2 | [Daftar Menu](#2-daftar-menu) | 11 menu aplikasi |
+| 2 | [Daftar Menu](#2-daftar-menu) | Menu per peran (admin, kasir, member) |
 | 3 | [Struktur Folder](#3-struktur-folder) | Peta kode & pola yang dipakai |
 | 4 | [Aturan Bisnis](#4-aturan-bisnis-ringkasan) | Poin, tukar poin, 4 jenis promo, pembatalan |
 | 5 | [Unit Test](#5-unit-test) | 15 test & cara menjalankannya |
@@ -86,17 +87,24 @@ Verifikasi hasil import:
 
 ```sql
 USE `seduhpoin`;
-SHOW TABLES;                    -- 12 tabel
+SHOW TABLES;                    -- 14 tabel (ada `pengguna` dan `sesi`)
 SELECT COUNT(*) FROM cabang;    -- 3
 SELECT COUNT(*) FROM produk;    -- 12
 SELECT COUNT(*) FROM member;    -- 3
 SELECT COUNT(*) FROM promo;     -- 5
 SELECT COUNT(*) FROM voucher;   -- 1
+SELECT username, role FROM pengguna;   -- admin (ADMIN), kasir (KASIR)
 ```
 
 > **Penting:** `schema.sql` diawali `DROP TABLE IF EXISTS`, sehingga menjalankannya
 > ulang akan **menghapus dan membuat ulang** seluruh tabel beserta datanya.
 > Lakukan hanya saat setup pertama atau ketika ingin mengulang dari nol.
+
+> **Database lama?** Jangan import ulang `schema.sql` (data lama hilang).
+> Jalankan **`migrate.sql`** — berkas migrasi yang tidak menghapus apa pun,
+> hanya menambah tabel/kolom baru (`pengguna`, `sesi`, `member.password_hash`,
+> `transaksi.pengguna_id`, `transaksi.kasir_nama`) dan inserting akun demo.
+> Migrasi ini idempotent, jadi aman dijalankan berkali-kali.
 
 ### Langkah 3 — Isi file `.env`
 
@@ -122,9 +130,19 @@ go run .
 
 <http://localhost:8080>
 
-> **Tidak ada login.** Seluruh menu dapat diakses langsung; aplikasi ini memakai
-> satu peran (kasir/admin) sesuai spesifikasi tugas akhir. Tidak ada mekanisme
-> autentikasi maupun sesi.
+Aplikasi memakai **login dengan tiga peran**. Halaman login terbuka di
+<http://localhost:8080/login>.
+
+| Peran | Username / No HP | Kata sandi awal | Keterangan |
+|---|---|---|---|
+| Admin / Pemilik | `admin` | `admin123` | Wajib mengganti kata sandi pada login pertama |
+| Kasir | `kasir` | `kasir123` | Langsung bisa dipakai |
+| Member | `081234567890` | `member123` | Tiga member seed: `081234567890`, `081298765432`, `085611223344` |
+
+> Kata sandi disimpan sebagai **bcrypt hash** (bukan teks polos). Akun `admin`
+> sengaja ditandai `harus_ganti_sandi`, sehingga setelah login pertama ia
+> langsung diarahkan ke halaman ganti kata sandi dan belum bisa membuka menu
+> lain sampai sandi diganti.
 
 ### Perintah yang sering dipakai
 
@@ -139,19 +157,54 @@ gofmt -l .            # cek format kode
 
 ## 2. Daftar Menu
 
+Hak akses tiap menu ditegakkan **di server** pada middleware `a.akses(peran, ...)`
+di titik registrasi rute. Menyembunyikan tautan di sidebar hanya untuk kenyamanan;
+mengetik URL secara langsung tetap akan ditolak dengan halaman 403.
+
+### Peran Admin / Pemilik
+
 | Menu | URL | Keterangan |
 |---|---|---|
 | Dashboard | `/` | Ringkasan transaksi, promo aktif, member |
 | Transaksi Baru | `/transaksi` | Form transaksi: pilih cabang, item, member, voucher, tukar poin |
 | Riwayat Transaksi | `/riwayat` | Daftar transaksi + filter tanggal/cabang, detail, pembatalan |
 | Produk | `/produk` | CRUD produk (soft delete) |
-| Member | `/member` | CRUD member, pencarian berdasarkan nomor HP |
+| Member | `/member` | CRUD member, kata sandi awal, reset kata sandi |
 | Promo & Voucher | `/promo` | CRUD 4 jenis promo + pengelolaan kuota voucher |
 | Cabang | `/cabang` | CRUD cabang (soft delete) |
 | Poin Member | `/poin` | Saldo poin aktif, tingkat member, lot poin, mutasi poin |
 | Laporan Biaya Promo | `/laporan/promo` | FR-18 |
 | Laporan Poin Berlaku | `/laporan/poin` | FR-19 |
 | Laporan Member per Tingkat | `/laporan/tingkat` | FR-20 |
+| Kelola Pengguna | `/pengguna` | CRUD akun staf, reset kata sandi, aktif/nonaktifkan |
+| Ganti Kata Sandi | `/akun/sandi` | Untuk semua peran |
+
+### Peran Kasir
+
+| Menu | URL | Keterangan |
+|---|---|---|
+| Transaksi Baru | `/transaksi` | Memproses transaksi: item, promo/voucher, tukar poin |
+| Riwayat Transaksi | `/riwayat` | Melihat riwayat dan **membatalkan** transaksi |
+| Produk | `/produk` | Hanya **membaca** katalog (untuk memilih item) |
+| Member | `/member` | Hanya **membaca** data member |
+| Promo & Voucher | `/promo` | Hanya **membaca** promo/voucher yang berlaku |
+| Cabang | `/cabang` | Hanya **membaca** data cabang |
+| Rincian Poin Member | `/poin/{id}` | Saldo & mutasi poin satu member |
+| Ganti Kata Sandi | `/akun/sandi` | Untuk semua peran |
+
+Menu **tidak** tersedia bagi kasir: Dashboard, Poin Member (daftar semua), seluruh
+Laporan, dan Kelola Pengguna. Master data hanya bisa dibaca, tidak diubah.
+
+### Peran Member / Pelanggan
+
+Portal read-only di `/portal`:
+
+| Menu | URL | Keterangan |
+|---|---|---|
+| Beranda Saya | `/portal` | Data keanggotaan, tingkat, saldo poin |
+| Riwayat Transaksi Saya | `/portal/transaksi` | Riwayat transaksi miliknya saja |
+| Promo & Voucher | `/portal/promo` | Promo/voucher yang sedang berlaku |
+| Ganti Kata Sandi | `/akun/sandi` | Mengganti kata sandi sendiri |
 
 Data awal (seed): nomor HP member `081234567890`, `081298765432`, `085611223344`;
 kode voucher `SEDUH10K` (kuota 100).
@@ -165,9 +218,15 @@ SeduhPoin/
 ├── main.go                     koneksi DB, router, server
 ├── go.mod / go.sum
 ├── .env / .env.example
-├── schema.sql                  DDL + index + seed data
+├── schema.sql                  DDL + index + seed data (installasi baru)
+├── migrate.sql                 migrasi idempotent untuk database lama
 ├── README.md
+├── cmd/
+│   └── hashkata/               cetak hash bcrypt (untuk seed / reset sandi)
 ├── internal/
+│   ├── auth/                   hash kata sandi + token sesi (bcrypt, SHA-256)
+│   │   ├── password.go
+│   │   └── password_test.go
 │   ├── calc/                   ATURAN BISNIS (pure, unit-testable)
 │   │   ├── calc.go             seluruh perhitungan & konstanta
 │   │   └── calc_test.go        unit test wajib
@@ -176,11 +235,21 @@ SeduhPoin/
 │   └── store/                  akses database (SQL mentah, sql.Tx)
 │       ├── db.go, cabang.go, produk.go, member.go,
 │       ├── promo.go, poin.go, transaksi.go, laporan.go
+│       └── auth.go             akun staf, akun member, tabel sesi
 ├── handlers/                   HTTP handler + template
 │   ├── app.go, helpers.go, render.go
+│   ├── auth.go                 login, logout, middleware peran
+│   ├── akun.go                 ganti kata sandi (semua peran)
+│   ├── pengguna.go             CRUD akun staf (khusus admin)
+│   ├── portal.go               portal member (read-only)
 │   ├── dashboard.go, cabang.go, produk.go, member.go, promo.go
 │   ├── transaksi.go, riwayat.go, poin.go, laporan.go
 ├── templates/                  layout, header, sidebar, footer + halaman
+│   ├── auth/                   halaman login
+│   ├── akun/                   ganti kata sandi
+│   ├── pengguna/               kelola akun staf
+│   ├── portal/                 portal member
+│   └── ...                     halaman operasional
 └── static/style.css            seluruh gaya tampilan
 ```
 
@@ -191,6 +260,8 @@ Pola yang dipakai:
   maupun saat menyimpan transaksi, sehingga perhitungan **tidak pernah diduplikasi**.
 * `internal/store` menangani seluruh SQL; penulisan atomic memakai `sql.Tx`.
 * `handlers` hanya mengatur HTTP, validasi input, dan pemanggilan template.
+* `internal/auth` menangani hashing (bcrypt) dan pembuatan token sesi; tidak
+  menyentuh database sehingga bisa diuji terpisah.
 
 ---
 
@@ -304,7 +375,10 @@ Test yang tersedia:
 
 ## 6. Keputusan Desain
 
-1. **Tanpa login/sesi** — sesuai spesifikasi: satu peran kasir/admin.
+1. **Autentikasi berbasis sesi di server** — ada tabel `pengguna` (akun staf
+   ADMIN/KASIR) dan kolom `password_hash` pada `member` (akun pelanggan).
+   Kata sandi di-hash dengan **bcrypt**, sesi disimpan di tabel `sesi`, dan
+   hak akses tiap rute diperiksa di middleware `wajibPeran`.
 2. **Tingkat member tidak disimpan** — dihitung on-the-fly dari transaksi 3 bulan
    terakhir, sehingga selalu akurat tanpa perlu job pemeliharaan data.
 3. **`cabang_ids` disimpan sebagai CSV** (`VARCHAR`) pada tabel `promo`; kosong berarti
@@ -345,6 +419,16 @@ Test yang tersedia:
 18. **Ikon memakai SVG inline** pada sidebar dan header, bukan font ikon pihak
     ketiga, sehingga tidak ada permintaan jaringan tambahan dan tetap sesuai
     larangan penggunaan framework frontend.
+19. **Pembagian peran sesuai tanggung jawab** — admin mengelola master data,
+    cabang, promo, member, laporan, dan akun staf; kasir memproses transaksi,
+    menerapkan promo, memakai poin, dan membatalkan transaksi; member hanya
+    melihat data keanggotaannya sendiri (read-only).
+20. **Master data bisa dibaca kasir, tetapi tidak diubah** — kasir tetap
+    membutuhkan katalog produk, data member, dan daftar promo saat melayani,
+    tetapi setiap rute tulis (tambah/ubah/hapus) memakai `peranAdmin`.
+21. **Akun `admin` demo dipaksa mengganti kata sandi** — kolom
+    `harus_ganti_sandi` membuat middleware menahan semua halaman selain
+    `/akun/sandi` sampai kata sandi awal diganti.
 
 ---
 
@@ -437,13 +521,19 @@ penjelas, jadi namun jawabannya selalu bisa ditunjuk ke baris kodenya.
 | File | Isi | Pertanyaan yang bisa dijawab dari sini |
 |---|---|---|
 | `main.go` | Koneksi DB, router, server | Konfigurasi `.env`, timezone WIB, kenapa tidak `log.Fatal` |
-| `handlers/app.go` | Registrasi seluruh rute | Alur request, kenapa tanpa login |
+| `handlers/app.go` | Registrasi seluruh rute | Alur request, inti RBAC per rute |
 | `handlers/transaksi.go` | Form transaksi, Hitung, Simpan | Alur transaksi, kenapa Hitung = POST |
 | `handlers/riwayat.go` | Riwayat + pembatalan | Filter tanggal/cabang, BR-14 |
 | `handlers/promo.go` | CRUD 4 jenis promo | Validasi promo, kenapa promo terpakai tak bisa dihapus |
 | `handlers/poin.go` | Saldo & mutasi poin | Kenapa tingkat dihitung on-the-fly, kenapa saldo tak disimpan |
 | `handlers/laporan.go` | Tiga laporan | FR-18/19/20 |
 | `handlers/member.go`, `produk.go`, `cabang.go` | Master data | Soft delete, unik no_hp, harga > 0 |
+| `handlers/auth.go` | Login, logout, middleware peran | Kenapa sesi di server, bagaimana RBAC ditegakkan |
+| `handlers/pengguna.go` | CRUD akun staf (admin) | Kenapa kasir tak boleh kelola akun staf |
+| `handlers/portal.go` | Portal member | Kenapa read-only, bagaimana transaksi milik sendiri dibatasi |
+| `handlers/akun.go` | Ganti kata sandi | Kenapa sandi lama wajib, kenapa sesi ikut dicabut |
+| `internal/auth/password.go` | bcrypt + token sesi | Bagaimana password disimpan, kenapa token di-hash |
+| `internal/store/auth.go` | Akun staf, akun member, tabel sesi | Sesi server-side, invalidasi saat logout |
 | `handlers/render.go`, `helpers.go` | Template & bantuan | Parse per request, validasi, pesan error |
 | `internal/calc/calc.go` | **Seluruh aturan bisnis** | Semua pertanyaan hitungan: B2G1, diskon, voucher, poin, FIFO, tingkat |
 | `internal/calc/calc_test.go` | Unit test aturan bisnis | "Ini dibuktikan test apa?" |
@@ -465,7 +555,12 @@ penjelas, jadi namun jawabannya selalu bisa ditunjuk ke baris kodenya.
 |---|---|---|
 | Kenapa tidak pakai framework web? | Spesifikasi tugas melarang; `net/http` + `html/template` saja sudah cukup. Router memakai pola `ServeMux` Go 1.22+ (method + wildcard). | `main.go`, `handlers/app.go` → `App.Register` |
 | Kenapa tidak pakai ORM? | Dilarang spesifikasi. Semua akses data lewat `database/sql` dengan SQL mentah; tiap query ditulis tangan di layer `store`. | `internal/store/db.go` → `Store`, `Store.Query`, `Store.ScanRows` |
-| Kenapa tidak ada login? | Satu peran saja (kasir/admin) sesuai spesifikasi. Karena itu tidak ada tabel user, session, atau password sama sekali. | Tidak ada file auth — buktinya `handlers/app.go` mendaftarkan semua menu langsung |
+| Kenapa login memakai sesi di database, bukan cookie biasa? | **Sudah ada login** dengan tiga peran (admin, kasir, member). Autentikasi memakai sesi server-side di tabel `sesi` dan kata sandi bcrypt. | `handlers/auth.go` → `prosesLogin`, `buatSesi`; `internal/store/auth.go` |
+| Bagaimana hak akses tiap peran ditegakkan? | Setiap rute didaftarkan dengan `a.akses(peran, handler)`. Middleware `wajibPeran` memeriksa peran dari sesi; bila tidak cocok, server membalas 403 — bukan sekadar menyembunyikan menu di sidebar. | `handlers/app.go` → `App.Register`; `handlers/auth.go` → `akses`, `wajibPeran`, `Identitas.Boleh` |
+| Bagaimana kata sandi disimpan? | Dengan **bcrypt** (`golang.org/x/crypto/bcrypt`, cost 10). Database hanya menyimpan hash; kata sandi polos tidak pernah ditulis ke database. | `internal/auth/password.go` → `HashPassword`, `CheckPassword` |
+| Kenapa sesi disimpan di database, bukan di cookie saja? | Supaya logout benar-benar mencabut akses (baris sesi dihapus) dan akun yang dinonaktifkan langsung kehilangan sesi. Cookie hanya menyimpan token acak; yang tersimpan di database adalah **SHA-256(token)**. | `handlers/auth.go` → `buatSesi`, `hapusSesi`; `internal/store/auth.go` → `BuatSesi`, `AmbilSesi` |
+| Kenapa kasir tak boleh mengelola akun staf? | Managementi akun staf memengaruhi akses sistem secara global (bisa membuat akun admin baru), pemisahan ini mencegah eskalasi hak akses dari kasir ke admin. | `handlers/pengguna.go` → `registerPengguna` (semua rute `peranAdmin`) |
+| Kenapa member hanya punya akses read-only? | Portal member untuk melihat data keanggotaan, poin, tingkat, dan riwayat transaksinya sendiri — seluruh data itu sudah tersedia dari sisi server. Menulis dari sisi pelanggan berarti memindahkan wewenang bisnis ke luar kasir. | `handlers/portal.go` |
 | Kenapa uangnya `int64`, bukan `float`? | `float64` menimbulkan galat pembulatan pada nominal rupiah. Semua uang dan poin `int64`; `float64` hanya untuk pengali tingkat (1.5 / 1.0). | `internal/calc/calc.go` → konstanta di bagian atas |
 | Bagaimana pemisahan layer? | `handlers` = HTTP + validasi + template; `internal/store` = seluruh SQL; `internal/calc` = aturan bisnis murni; `internal/models` = struct; `internal/format` = format angka/tanggal. `calc` tidak boleh menyentuh database. | Seluruh folder `internal/` |
 | Kenapa `internal/calc` dipisah? | Supaya aturan bisnis bisa diuji tanpa database. Semua perhitungan di satu tempat, dipakai ulang oleh tombol "Hitung" maupun saat menyimpan. | `internal/calc/calc.go` → `Hitung` |
@@ -500,22 +595,35 @@ penjelas, jadi namun jawabannya selalu bisa ditunjuk ke baris kodenya.
 | Bagaimana zona waktu dijamin WIB? | `import _ "time/tzdata"` di `main.go` (Windows sering tidak punya tzdata sistem) + `loc=Asia%2FJakarta` pada DSN. | `main.go`; `internal/format/format.go` → `WIB` |
 | Kenapa DSN harus `Asia%2FJakarta`? | Driver MySQL memisahkan DSN pada karakter `/` terakhir, jadi `/` harus di-encode menjadi `%2F`. | README Bagian 1, Langkah 3 |
 | Bagaimana template dinamis? | Template di-parse **per request** tanpa cache, jadi mengubah `.html` langsung terlihat tanpa restart. | `handlers/render.go` |
-| Apa yang dijamin unit test? | Contoh angka wajib (Rp145.000 → Rp104.000 → Rp64.000, 15 poin), FIFO 2 lot + tie-break, batas Gold (Rp1.499.999 Silver / Rp1.500.000 Gold), syarat gabung promo, dan validitas promo. | `internal/calc/calc_test.go`, `internal/models/models_test.go` |
+| Apa yang dijamin unit test? | Contoh angka wajib (Rp145.000 → Rp104.000 → Rp64.000, 15 poin), FIFO 2 lot + tie-break, batas Gold (Rp1.499.999 Silver / Rp1.500.000 Gold), syarat gabung promo, validitas promo, dan hashing password (bcrypt + SHA-256 token). | `internal/calc/calc_test.go`, `internal/models/models_test.go`, `internal/auth/password_test.go` |
+| Bagaimana cookie sesi dibuat aman? | `HttpOnly` (tidak bisa dibaca JavaScript), `SameSite=Lax` (proteksi dasar CSRF), dan `Secure` hanya aktif bila koneksi HTTPS — demo lokal jalan di HTTP sehingga cookie `Secure` akan ditolak browser. | `handlers/auth.go` → `buatSesi` |
+| Bagaimana member hanya melihat transaksinya sendiri? | Query detail transaksi memfilter `member_id` dari sesi (bukan dari URL), dan transaksi milik orang lain dibalas 404 — bukan 403 — agar keberadaannya tidak bocor. | `handlers/portal.go` → `portalDetailTransaksi`; `internal/store/transaksi.go` → `AmbilTransaksiMilikMember` |
+| Bagaimana logout dan ganti sandi mencabut akses? | Logout menghapus baris sesi di database, sehingga token langsung tidak berlaku. Ganti sandi juga menghapus **semua** sesi akun tersebut lalu membuat sesi baru untuk pengguna yang sedang mengubah sandi. | `handlers/auth.go` → `hapusSesi`; `handlers/akun.go` → `prosesGantiSandi` |
 
 ### 9.4 Alur demo yang aman (tidak merusak data demo)
 
+Semua langkah diawali login. Gunakan akun `admin`/`admin123` (wajib ganti sandi
+pada login pertama), `kasir`/`kasir123`, atau nomor HP member + `member123`.
+
 Kalau diminta demo cepat, urutan ini paling aman dan tidak merusak data:
 
-1. **Dashboard** — tunjukkan ringkasan (menu paling atas).
-2. **Transaksi → Hitung** (tanpa menyimpan) — masukkan 3 item Kopi Susu Gula Aren
+1. **Login** — tunjukkan halaman login dan peran yang tersedia.
+2. **Dashboard (admin)** — tunjukkan ringkasan (menu paling atas).
+3. **Transaksi → Hitung** (tanpa menyimpan) — masukkan 3 item Kopi Susu Gula Aren
    (Rp28.000), pakai voucher `SEDUH10K`, tekan **Hitung**. Tunjukkan rinciannya:
    subtotal, potongan, total setelah promo, batas tukar poin, poin yang diperoleh.
    **Jangan klik Simpan** supaya data demo tetap bersih.
-3. **Promo** — tunjukkan 4 jenis promo dan tanggal/jam/cabang; jelaskan kenapa
+4. **Promo** — tunjukkan 4 jenis promo dan tanggal/jam/cabang; jelaskan kenapa
    diskon produk boleh digabung tapi min-belanja tidak boleh digabung voucher.
-4. **Poin Member** — buka `081234567890`, jelaskan saldo = jumlah lot aktif,
+5. **Poin Member** — buka `081234567890`, jelaskan saldo = jumlah lot aktif,
    tingkat dihitung on-the-fly, dan mutasi `PEROLEHAN/PENUKARAN/KEMBALI/TARIK`.
-5. **Laporan** — tunjukkan tiga laporan (biaya promo, poin berlaku, member per tingkat).
+6. **Laporan** — tunjukkan tiga laporan (biaya promo, poin berlaku, member per tingkat).
+7. **Portal member** — login sebagai `081234567890`/`member123`, tunjukkan saldo
+   poin, tingkat keanggotaan, dan riwayat transaksi sendiri.
+
+> Untuk menunjukkan pembatasan peran, buka `/pengguna` (Kelola Pengguna) memakai
+> akun kasir — server membalas **403 Akses ditolak**, walaupun tautannya memang
+> tidak ditampilkan di sidebar.
 
 > Kalau diminta demo **penyimpanan** transaksi, lakukan di cabang `C03` (bandung)
 > dengan kode voucher `SEDUH10K`, lalu batalkan kembali lewat menu Riwayat agar
@@ -529,6 +637,8 @@ Kalau diminta demo cepat, urutan ini paling aman dan tidak merusak data:
 * Tidak memakai ORM (GORM atau lainnya); seluruh akses database memakai `database/sql`
   dengan SQL mentah.
 * Tidak memakai React/Vue/Angular atau build tool pada frontend.
-* Tidak ada autentikasi/login.
+* Autentikasi memakai pustaka standar `golang.org/x/crypto/bcrypt` (bukan
+  implementasi buatan sendiri) dan sesi disimpan di database — bukan cookie
+  berisi data identitas.
 * Seluruh perhitungan aturan bisnis berada di `internal/calc` dan dapat diuji dengan
   `go test`.

@@ -375,6 +375,27 @@ func (s *Store) PromoAktif(ctx context.Context, cabangID int64, waktu time.Time)
 	return hasil, nil
 }
 
+// PromoAktifSemuaCabang mengembalikan promo yang berlaku pada waktu tertentu
+// tanpa memandang cabang.
+//
+// Varian ini dipakai portal member: member tidak punya cabang, jadi promo
+// yang dibatasi cabang tertentu tetap layak ditampilkan sebagai informasi
+// promo yang sedang berjalan.
+func (s *Store) PromoAktifSemuaCabang(ctx context.Context, waktu time.Time) ([]models.Promo, error) {
+	daftar, err := s.DaftarPromo(ctx, "", "")
+	if err != nil {
+		return nil, err
+	}
+	var hasil []models.Promo
+	for _, p := range daftar {
+		if !p.BerlakuPadaTanpaCabang(waktu) {
+			continue
+		}
+		hasil = append(hasil, p)
+	}
+	return hasil, nil
+}
+
 // UbahKuotaVoucher memperbarui kuota voucher (tidak boleh lebih kecil dari terpakai).
 //
 // Syarat terpakai <= kuota dituliskan pada WHERE sehingga kuota voucher tidak

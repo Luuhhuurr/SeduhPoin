@@ -31,11 +31,13 @@ DROP TABLE IF EXISTS poin_lot;
 DROP TABLE IF EXISTS transaksi_promo;
 DROP TABLE IF EXISTS transaksi_item;
 DROP TABLE IF EXISTS transaksi;
+DROP TABLE IF EXISTS sesi;
 DROP TABLE IF EXISTS voucher;
 DROP TABLE IF EXISTS promo_kategori;
 DROP TABLE IF EXISTS promo_produk;
 DROP TABLE IF EXISTS promo;
 DROP TABLE IF EXISTS member;
+DROP TABLE IF EXISTS pengguna;
 DROP TABLE IF EXISTS produk;
 DROP TABLE IF EXISTS cabang;
 
@@ -96,17 +98,53 @@ CREATE TABLE produk (
 -- Tujuannya agar data member tidak perlu "dipelihara" oleh job terjadwal.
 --
 -- no_hp wajib unik dan hanya berisi digit: dipakai untuk mencari member
--- pada form transaksi.
+-- pada form transaksi, dan juga sebagai identitas login portal member.
+--
+-- password_hash: hasil bcrypt kata sandi login member. NULL berarti member
+-- belum punya akun login (kasir/admin dapat mengaturnya dari halaman detail
+-- member). Kata sandi polos TIDAK PERNAH disimpan di database.
 -- ---------------------------------------------------------------------
 CREATE TABLE member (
-  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  no_hp      VARCHAR(20)  NOT NULL,      -- unik, hanya digit
-  nama       VARCHAR(100) NOT NULL,
-  tgl_daftar DATE         NOT NULL,
-  deleted_at DATETIME     NULL,
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  no_hp         VARCHAR(20)  NOT NULL,      -- unik, hanya digit
+  nama          VARCHAR(100) NOT NULL,
+  tgl_daftar    DATE         NOT NULL,
+  password_hash VARCHAR(255) NULL,          -- bcrypt; NULL = belum punya akun login
+  deleted_at    DATETIME     NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_member_no_hp (no_hp),
   KEY idx_member_deleted (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- 3b. Pengguna (akun staf: admin dan kasir)
+--
+-- Tabel ini terpisah dari member karena keduanya berbeda jenis login:
+--   - pengguna : username pilihan staf, peran ADMIN atau KASIR,
+--   - member   : nomor HP pelanggan, peran implicit MEMBER.
+--
+-- password_hash berisi hasil bcrypt. Kata sandi asli tidak pernah disimpan,
+-- sehingga bocornya isi tabel tidak langsung berarti bisa login.
+--
+-- harus_ganti_sandi dipakai untuk memaksa pengguna mengganti kata sandi
+-- awal (misalnya akun demo) pada login pertama.
+--
+-- akun yang dinonaktifkan (aktif = 0) otomatis kehilangan sesi aktifnya:
+-- sesi diperiksa ulang di server pada setiap request.
+-- ---------------------------------------------------------------------
+CREATE TABLE pengguna (
+  id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  username          VARCHAR(30)  NOT NULL,      -- unik, tanpa spasi
+  nama              VARCHAR(100) NOT NULL,
+  password_hash     VARCHAR(255) NOT NULL,      -- bcrypt, tidak pernah polos
+  role              ENUM('ADMIN','KASIR') NOT NULL DEFAULT 'KASIR',
+  aktif             TINYINT(1)   NOT NULL DEFAULT 1,
+  harus_ganti_sandi TINYINT(1)   NOT NULL DEFAULT 0,
+  created_at        DATETIME     NOT NULL,
+  last_login_at     DATETIME     NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_pengguna_username (username),
+  KEY idx_pengguna_role (role, aktif)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
@@ -220,6 +258,8 @@ CREATE TABLE transaksi (
   kode                   VARCHAR(30)  NOT NULL,
   cabang_id              INT UNSIGNED NOT NULL,
   member_id              INT UNSIGNED NULL,
+  pengguna_id            INT UNSIGNED NULL,   -- kasir yang memproses penjualan
+  kasir_nama             VARCHAR(100) NULL,   -- salinan nama kasir saat transaksi disimpan
   tanggal_transaksi      DATETIME     NOT NULL,
   tingkat_saat_transaksi ENUM('SILVER','GOLD') NOT NULL DEFAULT 'SILVER',
   pengali_saat_transaksi DECIMAL(3,2) NOT NULL DEFAULT 1.00,
@@ -237,7 +277,8 @@ CREATE TABLE transaksi (
   KEY idx_transaksi_member (member_id),                        -- hitung belanja 3 bulan untuk tingkat
   KEY idx_transaksi_status (status),                           -- laporan hanya menghitung SELESAI
   CONSTRAINT fk_transaksi_cabang FOREIGN KEY (cabang_id) REFERENCES cabang(id),
-  CONSTRAINT fk_transaksi_member FOREIGN KEY (member_id) REFERENCES member(id)
+  CONSTRAINT fk_transaksi_member FOREIGN KEY (member_id) REFERENCES member(id),
+  CONSTRAINT fk_transaksi_pengguna FOREIGN KEY (pengguna_id) REFERENCES pengguna(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Rincian item. nama_produk, kategori, dan harga DISALIN ke sini saat
@@ -338,6 +379,41 @@ CREATE TABLE mutasi_poin (
   CONSTRAINT fk_mp_transaksi FOREIGN KEY (transaksi_id) REFERENCES transaksi(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ---------------------------------------------------------------------
+-- 8. Sesi login
+--
+-- Sesi disimpan DI SERVER, bukan di browser. Yang dikirim ke browser hanya
+-- token acak melalui cookie HttpOnly; yang disimpan di tabel ini adalah
+-- SHA-256 dari token itu. Jadi bocornya isi tabel sesi tidak langsung
+-- berarti ada orang yang bisa memakai cookie tersebut.
+--
+-- Logout menghapus baris sesi, sehingga token langsung tidak berlaku
+-- (bukan sekadar menghapus cookie di browser).
+--
+-- Sesi berakhir otomatis lewat kolom kedaluwarsa_at (8 jam), dan baris
+-- kedaluwarsa dibersihkan secara lazy setiap kali ada login berhasil.
+--
+-- jenis: PENGGUNA = sesi staf (pengguna_id terisi),
+--        MEMBER   = sesi pelanggan (member_id terisi).
+-- ---------------------------------------------------------------------
+CREATE TABLE sesi (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  token_hash     CHAR(64)     NOT NULL,   -- SHA-256 hex dari token cookie
+  jenis          ENUM('PENGGUNA','MEMBER') NOT NULL,
+  pengguna_id    INT UNSIGNED NULL,
+  member_id      INT UNSIGNED NULL,
+  peran          VARCHAR(20)  NOT NULL,   -- snapshot peran saat login
+  dibuat_at      DATETIME     NOT NULL,
+  kedaluwarsa_at DATETIME     NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_sesi_token (token_hash),
+  KEY idx_sesi_kedaluwarsa (kedaluwarsa_at),
+  KEY idx_sesi_pengguna (pengguna_id),
+  KEY idx_sesi_member (member_id),
+  CONSTRAINT fk_sesi_pengguna FOREIGN KEY (pengguna_id) REFERENCES pengguna(id) ON DELETE CASCADE,
+  CONSTRAINT fk_sesi_member   FOREIGN KEY (member_id)   REFERENCES member(id)   ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- =====================================================================
 --  SEED DATA AWAL
 --
@@ -367,11 +443,26 @@ INSERT INTO produk (kode, nama, kategori, harga) VALUES
   ('P12', 'Gula Aren Botol 250ml','Retail',   35000);
 
 -- 3 Member contoh. Nomor HP inilah yang dipakai untuk mencari member
--- pada form transaksi.
+-- pada form transaksi, dan juga sebagai identitas login portal member.
 INSERT INTO member (no_hp, nama, tgl_daftar) VALUES
   ('081234567890', 'Budi Santoso',  '2026-01-15'),
   ('081298765432', 'Siti Aminah',   '2026-02-20'),
   ('085611223344', 'Andi Wijaya',   '2026-03-05');
+
+-- Akun demo (akun member di atas memakai kata sandi "member123").
+--
+-- PENTING: hash di bawah DIHASILKAN oleh bcrypt, tidak boleh dikarang.
+-- Buat hash baru dengan: go run ./cmd/hashkata <sandi>
+--
+--   admin / admin123  -> admin, WAJIB ganti sandi pada login pertama
+--   kasir / kasir123  -> kasir
+INSERT INTO pengguna (username, nama, password_hash, role, aktif, harus_ganti_sandi, created_at) VALUES
+  ('admin', 'Administrator', '$2a$10$SmHm3F8f1uwbkLEqCNvZQ.S3/QrR4jZq5JXmT/6CHZ11o78kOYYoi', 'ADMIN', 1, 1, '2026-01-01 00:00:00'),
+  ('kasir', 'Kasir Demo',    '$2a$10$xnyLuVXZBIrrxG25Xluz0OxsjIUfUqZOu5wdVXrXmh61vK8pH0jxO', 'KASIR', 1, 0, '2026-01-01 00:00:00');
+
+-- Member contoh memakai akun login portal dengan kata sandi "member123".
+UPDATE member SET password_hash = '$2a$10$If/YiycbdbxKG8J/3TJxRehIjQVqGiH7rn0nKC0VK76tysWQb7wWi'
+WHERE no_hp IN ('081234567890', '081298765432', '085611223344');
 
 -- Promo contoh
 -- (a) Diskon % produk tertentu -- hanya berlaku jam pagi 06:00-11:00

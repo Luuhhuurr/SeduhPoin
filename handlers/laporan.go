@@ -8,10 +8,13 @@ import (
 )
 
 // registerLaporan mendaftarkan rute ketiga laporan.
+//
+// Hanya admin (pemilik) yang boleh melihat laporan; kasir menangani
+// transaksi harian, bukan analisis.
 func (a *App) registerLaporan(mux *http.ServeMux) {
-	mux.HandleFunc("GET /laporan/promo", a.withDB(a.laporanBiayaPromo))
-	mux.HandleFunc("GET /laporan/poin", a.withDB(a.laporanPoinBerlaku))
-	mux.HandleFunc("GET /laporan/tingkat", a.withDB(a.laporanMemberPerTingkat))
+	mux.HandleFunc("GET /laporan/promo", a.akses(peranAdmin, a.laporanBiayaPromo))
+	mux.HandleFunc("GET /laporan/poin", a.akses(peranAdmin, a.laporanPoinBerlaku))
+	mux.HandleFunc("GET /laporan/tingkat", a.akses(peranAdmin, a.laporanMemberPerTingkat))
 }
 
 // filterLaporan membaca parameter filter periode dan cabang dari query string.
@@ -64,7 +67,7 @@ func (a *App) laporanBiayaPromo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "laporan/promo.html", View{
+	a.render(w, r, "laporan/promo.html", View{
 		Title: "Laporan Biaya Promo",
 		Menu:  "laporan-promo",
 		Error: ambilError(r),
@@ -89,7 +92,7 @@ func (a *App) laporanPoinBerlaku(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "laporan/poin.html", View{
+	a.render(w, r, "laporan/poin.html", View{
 		Title: "Laporan Poin Berlaku",
 		Menu:  "laporan-poin",
 		Data: map[string]any{
@@ -133,7 +136,7 @@ func (a *App) laporanMemberPerTingkat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "laporan/tingkat.html", View{
+	a.render(w, r, "laporan/tingkat.html", View{
 		Title: "Laporan Member per Tingkat",
 		Menu:  "laporan-tingkat",
 		Error: ambilError(r),

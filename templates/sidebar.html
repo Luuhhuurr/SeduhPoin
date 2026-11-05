@@ -1,11 +1,14 @@
 {{define "sidebar"}}
 <aside class="sidebar">
   <nav>
+    {{if .Identitas.Boleh "STAFF"}}
     <p class="menu-judul">Operasional</p>
+    {{if .Identitas.Boleh "ADMIN"}}
     <a href="/" class="{{if eq .Menu "dashboard"}}aktif{{end}}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
       Dashboard
     </a>
+    {{end}}
     <a href="/transaksi" class="{{if eq .Menu "transaksi"}}aktif{{end}}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12l2 5H4z"/><path d="M4 7v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/><path d="M9 11a3 3 0 0 0 6 0"/></svg>
       Transaksi Baru
@@ -32,7 +35,11 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
       Cabang
     </a>
+    {{if not (.Identitas.Boleh "ADMIN")}}
+    <p class="menu-catatan">Kasir hanya dapat melihat data master. Pengubahan data master dilakukan admin.</p>
+    {{end}}
 
+    {{if .Identitas.Boleh "ADMIN"}}
     <p class="menu-judul">Loyalty</p>
     <a href="/poin" class="{{if eq .Menu "poin"}}aktif{{end}}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.6 1.1 6.5L12 17.5l-5.8 3.05 1.1-6.5-4.7-4.6 6.5-.95z"/></svg>
@@ -52,11 +59,46 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8l2.6 5.4 5.9.85-4.25 4.15 1 5.9L12 16.4l-5.25 2.7 1-5.9L3.5 9.05l5.9-.85z"/><path d="M12 12.4v4"/></svg>
       Member per Tingkat
     </a>
+
+    <p class="menu-judul">Administrasi</p>
+    <a href="/pengguna" class="{{if eq .Menu "pengguna"}}aktif{{end}}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/><path d="M18.5 4.5l1.6 1.6 2.4-2.6"/></svg>
+      Kelola Pengguna
+    </a>
+    {{end}}
+    {{end}}
+
+    {{if .Identitas.Boleh "MEMBER"}}
+    <p class="menu-judul">Menu Saya</p>
+    <a href="/portal" class="{{if eq .Menu "portal"}}aktif{{end}}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M9.5 21v-6h5v6"/></svg>
+      Beranda Saya
+    </a>
+    <a href="/portal/transaksi" class="{{if eq .Menu "portal-transaksi"}}aktif{{end}}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
+      Riwayat Transaksi Saya
+    </a>
+    <a href="/portal/promo" class="{{if eq .Menu "portal-promo"}}aktif{{end}}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4L12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.4"/></svg>
+      Promo &amp; Voucher
+    </a>
+    {{end}}
+
+    <p class="menu-judul">Akun</p>
+    <a href="/akun/sandi" class="{{if eq .Menu "akun"}}aktif{{end}}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      Ganti Kata Sandi
+    </a>
   </nav>
 
   <div class="sidebar-kaki">
-    <b>Peran: Kasir / Admin</b><br>
-    Tanpa login &mdash; seluruh menu dapat diakses langsung.
+    <div class="chip-pengguna">
+      <span class="chip-nama">{{.Identitas.Nama}}</span>
+      <span class="chip-peran peran-{{lower .Identitas.Peran}}">{{labelPeran .Identitas.Peran}}</span>
+    </div>
+    <form method="post" action="/logout">
+      <button type="submit" class="tombol tombol-kecil tombol-abu keluar">Keluar</button>
+    </form>
   </div>
 </aside>
 {{end}}

@@ -1,0 +1,74 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Promo &amp; Voucher</h1>
+  <p class="deskripsi">
+    Promo yang sedang berjalan. Gunakan kode voucher saat checkout di kasir —
+    portal ini hanya menampilkan informasi, tidak memproses pembelian.
+  </p>
+
+  <h2 class="judul-bagian">Promo Aktif</h2>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Nama</th>
+          <th>Jenis</th>
+          <th>Periode</th>
+          <th>Ketentuan</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Promo}}
+        <tr>
+          <td><b>{{.Kode}}</b></td>
+          <td>{{.Nama}}</td>
+          <td><span class="badge badge-info">{{.Jenis}}</span></td>
+          <td>
+            {{tanggalSingkat .TglMulai}} s/d {{tanggalSingkat .TglSelesai}}
+            {{if .JamMulai}}<br><span class="petunjuk">{{.JamMulai}} - {{.JamSelesai}}</span>{{end}}
+          </td>
+          <td>
+            {{if .NilaiPersen}}<span class="petunjuk">Diskon {{.NilaiPersen}}%</span>{{end}}
+            {{if .NilaiNominal}}<span class="petunjuk">Potongan {{rupiah .NilaiNominal}}</span>{{end}}
+            {{if .MinBelanja}}<span class="petunjuk">Min. belanja {{rupiah .MinBelanja}}</span>{{end}}
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="kosong">Belum ada promo yang sedang berjalan.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="judul-bagian">Voucher</h2>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode Voucher</th>
+          <th class="kanan">Kuota</th>
+          <th class="kanan">Terpakai</th>
+          <th class="kanan">Sisa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Voucher}}
+        <tr>
+          <td><b>{{.Kode}}</b></td>
+          <td class="kanan">{{.Kuota}}</td>
+          <td class="kanan">{{.Terpakai}}</td>
+          <td class="kanan">{{sisaKuota .Kuota .Terpakai}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="kosong">Belum ada voucher.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tombol-aksi">
+    <a href="/portal" class="tombol tombol-abu">Kembali ke Beranda</a>
+  </div>
+</div>
+{{end}}

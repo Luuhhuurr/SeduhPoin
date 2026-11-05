@@ -11,9 +11,9 @@ import (
 
 // registerRiwayat mendaftarkan rute riwayat transaksi.
 func (a *App) registerRiwayat(mux *http.ServeMux) {
-	mux.HandleFunc("GET /riwayat", a.withDB(a.daftarRiwayat))
-	mux.HandleFunc("GET /riwayat/{id}", a.withDB(a.detailRiwayat))
-	mux.HandleFunc("POST /riwayat/{id}/batal", a.withDB(a.batalkanTransaksi))
+	mux.HandleFunc("GET /riwayat", a.akses(peranStaff, a.daftarRiwayat))
+	mux.HandleFunc("GET /riwayat/{id}", a.akses(peranStaff, a.detailRiwayat))
+	mux.HandleFunc("POST /riwayat/{id}/batal", a.akses(peranStaff, a.batalkanTransaksi))
 }
 
 // daftarRiwayat menampilkan daftar transaksi dengan filter tanggal dan cabang.
@@ -63,7 +63,7 @@ func (a *App) daftarRiwayat(w http.ResponseWriter, r *http.Request) {
 		total += t.TotalBayar
 	}
 
-	a.render(w, "riwayat/list.html", View{
+	a.render(w, r, "riwayat/list.html", View{
 		Title: "Riwayat Transaksi",
 		Menu:  "riwayat",
 		Error: ambilError(r),
@@ -92,7 +92,7 @@ func (a *App) detailRiwayat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "riwayat/detail.html", View{
+	a.render(w, r, "riwayat/detail.html", View{
 		Title: "Transaksi " + transaksi.Kode,
 		Menu:  "riwayat",
 		Error: ambilError(r),

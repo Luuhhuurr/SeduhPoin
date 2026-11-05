@@ -7,14 +7,39 @@ package handlers
 //   - internal/models: struktur data domain yang disalin dari/ke store.
 //   - internal/calc  : aturan bisnis murni yang dapat diuji dengan go test.
 //
-// Tidak ada login/sesi: aplikasi memakai satu peran (kasir/admin) sesuai
-// spesifikasi tugas akhir, sehingga seluruh menu dapat diakses langsung.
+// Autentikasi: aplikasi memakai sesi berbasis cookie dan tiga peran
+// (admin, kasir, member). Pemeriksaan peran ditegakkan di server pada
+// middleware wajibPeran, bukan sekadar dengan menyembunyikan menu.
 
 import (
 	"net/http"
 
 	"seduhpoin/internal/format"
+	"seduhpoin/internal/models"
 )
+
+// halamanDashboard adalah titik masuk aplikasi pada path "/".
+//
+// Dashboard ini berisi ringkasan operasional (omzet, transaksi, promo) yang
+// relevan untuk pemilik. Kasir diarahkan ke form transaksi karena itu
+// pekerjaan utamanya, member diarahkan ke portalnya sendiri, dan
+// pengunjung yang belum login diarahkan ke halaman login.
+func (a *App) halamanDashboard(w http.ResponseWriter, r *http.Request) {
+	id := identitasDari(r)
+	if !id.Masuk {
+		redirectKeLogin(w, r)
+		return
+	}
+	switch id.Peran {
+	case models.RoleMember:
+		http.Redirect(w, r, "/portal", http.StatusSeeOther)
+		return
+	case models.RoleKasir:
+		http.Redirect(w, r, "/transaksi", http.StatusSeeOther)
+		return
+	}
+	a.dashboard(w, r)
+}
 
 // dashboard menampilkan ringkasan operasional kedai.
 //
@@ -29,7 +54,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat dashboard", err.Error())
 		return
 	}
-	a.render(w, "dashboard/list.html", View{
+	a.render(w, r, "dashboard/list.html", View{
 		Title: "Dashboard",
 		Menu:  "dashboard",
 		Data:  data,

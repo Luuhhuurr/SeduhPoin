@@ -20,16 +20,46 @@
           </td>
         </tr>
         <tr><th>Belanja 3 Bulan Terakhir</th><td>{{rupiah .Data.Belanja}}</td></tr>
+        <tr>
+          <th>Akun Login Portal</th>
+          <td>
+            {{if .Data.Member.PunyaAkun}}
+              <span class="badge badge-ok">Aktif</span>
+            {{else}}
+              <span class="badge badge-grey">Belum ada kata sandi</span>
+            {{end}}
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>
 
+  {{if .Identitas.Boleh "ADMIN"}}
+  <h2 class="judul-bagian">Atur Ulang Kata Sandi</h2>
+  <p class="deskripsi">
+    Member login ke portal memakai nomor HP-nya. Beri kata sandi agar member
+    bisa melihat saldo poin dan riwayat transaksinya sendiri.
+  </p>
+  <form method="post" action="/member/{{.Data.Member.ID}}/sandi" class="formulir">
+    <div class="baris-form">
+      <label for="sandi">Kata Sandi Baru</label>
+      <input type="password" id="sandi" name="sandi" autocomplete="new-password" minlength="6" required>
+      <p class="petunjuk">Minimal 6 karakter. Beri tahu member secara pribadi.</p>
+    </div>
+    <div class="tombol-aksi">
+      <button type="submit">Ganti Kata Sandi</button>
+    </div>
+  </form>
+  {{end}}
+
   <div class="tombol-aksi">
     <a href="/poin/{{.Data.Member.ID}}" class="tombol">Lihat Poin</a>
+    {{if .Identitas.Boleh "ADMIN"}}
     <a href="/member/{{.Data.Member.ID}}/edit" class="tombol">Ubah Data</a>
     <form method="post" action="/member/{{.Data.Member.ID}}/hapus" onsubmit="return confirm('Hapus member ini? Riwayat transaksi lama tetap tersimpan.')">
       <button type="submit" class="tombol tombol-batal">Hapus</button>
     </form>
+    {{end}}
     <a href="/member" class="tombol tombol-abu">Kembali ke Daftar</a>
   </div>
 </div>

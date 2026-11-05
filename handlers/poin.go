@@ -28,9 +28,14 @@ type barisLot struct {
 }
 
 // registerPoin mendaftarkan rute halaman poin member.
+//
+// Daftar seluruh member beserta saldo poinnya adalah ringkasan data
+// loyalitas, jadi hanya admin yang boleh membukanya. Rincian poin satu
+// member boleh dibuka kasir karena kasir perlu tahu saldo member saat
+// melayani transaksi.
 func (a *App) registerPoin(mux *http.ServeMux) {
-	mux.HandleFunc("GET /poin", a.withDB(a.daftarPoin))
-	mux.HandleFunc("GET /poin/{id}", a.withDB(a.detailPoin))
+	mux.HandleFunc("GET /poin", a.akses(peranAdmin, a.daftarPoin))
+	mux.HandleFunc("GET /poin/{id}", a.akses(peranStaff, a.detailPoin))
 }
 
 // daftarPoin menampilkan daftar seluruh member beserta saldo poin aktifnya.
@@ -71,7 +76,7 @@ func (a *App) daftarPoin(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	a.render(w, "poin/list.html", View{
+	a.render(w, r, "poin/list.html", View{
 		Title: "Poin Member",
 		Menu:  "poin",
 		Data: map[string]any{
@@ -138,7 +143,7 @@ func (a *App) detailPoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "poin/detail.html", View{
+	a.render(w, r, "poin/detail.html", View{
 		Title: "Poin " + member.Nama,
 		Menu:  "poin",
 		Data: map[string]any{

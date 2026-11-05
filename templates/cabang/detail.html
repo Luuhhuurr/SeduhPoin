@@ -15,10 +15,12 @@
   </div>
 
   <div class="tombol-aksi">
+    {{if .Identitas.Boleh "ADMIN"}}
     <a href="/cabang/{{.Data.Cabang.ID}}/edit" class="tombol">Ubah Data</a>
     <form method="post" action="/cabang/{{.Data.Cabang.ID}}/hapus" onsubmit="return confirm('Hapus cabang ini? Data transaksi lama tetap tersimpan.')">
       <button type="submit" class="tombol tombol-batal">Hapus</button>
     </form>
+    {{end}}
     <a href="/cabang" class="tombol tombol-abu">Kembali ke Daftar</a>
   </div>
 </div>

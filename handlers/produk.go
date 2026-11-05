@@ -9,14 +9,17 @@ import (
 )
 
 // registerProduk mendaftarkan rute CRUD produk.
+//
+// Admin mengelola data produk; kasir hanya membaca katalog (dibutuhkan saat
+// memilih item di form transaksi).
 func (a *App) registerProduk(mux *http.ServeMux) {
-	mux.HandleFunc("GET /produk", a.withDB(a.daftarProduk))
-	mux.HandleFunc("GET /produk/tambah", a.withDB(a.formProduk))
-	mux.HandleFunc("POST /produk/tambah", a.withDB(a.simpanProduk))
-	mux.HandleFunc("GET /produk/{id}", a.withDB(a.detailProduk))
-	mux.HandleFunc("GET /produk/{id}/edit", a.withDB(a.formProduk))
-	mux.HandleFunc("POST /produk/{id}/edit", a.withDB(a.simpanProduk))
-	mux.HandleFunc("POST /produk/{id}/hapus", a.withDB(a.hapusProduk))
+	mux.HandleFunc("GET /produk", a.akses(peranStaff, a.daftarProduk))
+	mux.HandleFunc("GET /produk/{id}", a.akses(peranStaff, a.detailProduk))
+	mux.HandleFunc("GET /produk/tambah", a.akses(peranAdmin, a.formProduk))
+	mux.HandleFunc("POST /produk/tambah", a.akses(peranAdmin, a.simpanProduk))
+	mux.HandleFunc("GET /produk/{id}/edit", a.akses(peranAdmin, a.formProduk))
+	mux.HandleFunc("POST /produk/{id}/edit", a.akses(peranAdmin, a.simpanProduk))
+	mux.HandleFunc("POST /produk/{id}/hapus", a.akses(peranAdmin, a.hapusProduk))
 }
 
 // daftarProduk menampilkan katalog produk.
@@ -38,7 +41,7 @@ func (a *App) daftarProduk(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat daftar kategori", err.Error())
 		return
 	}
-	a.render(w, "produk/list.html", View{
+	a.render(w, r, "produk/list.html", View{
 		Title: "Data Produk",
 		Menu:  "produk",
 		Error: ambilError(r),
@@ -77,7 +80,7 @@ func (a *App) formProduk(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat daftar kategori", err.Error())
 		return
 	}
-	a.render(w, "produk/form.html", View{
+	a.render(w, r, "produk/form.html", View{
 		Title: "Form Produk",
 		Menu:  "produk",
 		Error: ambilError(r),
@@ -172,7 +175,7 @@ func (a *App) detailProduk(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusNotFound, "Produk tidak ditemukan", err.Error())
 		return
 	}
-	a.render(w, "produk/detail.html", View{
+	a.render(w, r, "produk/detail.html", View{
 		Title: "Detail Produk",
 		Menu:  "produk",
 		Data: map[string]any{

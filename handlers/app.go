@@ -24,30 +24,51 @@ func New(s *store.Store) *App {
 // lewat r.PathValue("nama") — misalnya "GET /riwayat/{id}".
 //
 // Catatan penting untuk pembicaraan dosen:
-//   - Aplikasi ini SENGAJA tidak memakai login, sesi, atau autentikasi apa pun.
-//     Sesuai spesifikasi tugas akhir hanya ada satu peran (kasir/admin), sehingga
-//     seluruh menu dapat diakses langsung tanpa login.
+//   - Aplikasi ini memakai autentikasi berbasis sesi: login dulu, lalu hak
+//     akses tiap rute diperiksa di sisi server melalui a.akses(peran, ...).
+//     Menyembunyikan menu di sidebar bukan pengaman; pengaman yang
+//     sesungguhnya ada di middleware wajibPeran.
+//   - Pembagian peran mengikuti tanggung jawab: admin mengelola master data
+//     (produk, cabang, promo, member), laporan, dan akun staf; kasir
+//     memproses transaksi, menerapkan promo, memakai poin, dan membatalkan
+//     transaksi; member hanya melihat data keanggotaannya sendiri.
 //   - Untuk menambah halaman baru cukup daftarkan satu baris mux.HandleFunc di
 //     sini; router tidak memakai framework web eksternal (dilarang Gin/Echo).
 func (a *App) Register(mux *http.ServeMux) {
-	// Halaman dashboard. "{$}" berarti path persis "/" (bukan semua path).
-	mux.HandleFunc("GET /{$}", a.withDB(a.dashboard))
+	// Autentikasi. Halaman login bersifat publik; logout merusak sesi.
+	a.registerAuth(mux)
 
-	// Data master
+	// Halaman dashboard. "{$}" berarti path persis "/" (bukan semua path).
+	// Member diarahkan ke portalnya, kasir ke form transaksi (itu pekerjaannya),
+	// sedangkan admin melihat ringkasan operasional.
+	// Gate peran dipakai (bukan hanya withDB) supaya akun yang masih harus
+	// mengganti kata sandi awal ikut tertahan di halaman ganti sandi.
+	mux.HandleFunc("GET /{$}", a.akses("", a.halamanDashboard))
+
+	// Data master: dibaca staf, diubah admin.
 	a.registerCabang(mux)
 	a.registerProduk(mux)
 	a.registerMember(mux)
 	a.registerPromo(mux)
 
-	// Transaksi
+	// Transaksi: operasional kasir (admin juga boleh-own).
 	a.registerTransaksi(mux)
 	a.registerRiwayat(mux)
 
 	// Loyalty
 	a.registerPoin(mux)
 
-	// Laporan
+	// Laporan: khusus admin (pemilik).
 	a.registerLaporan(mux)
+
+	// Akun staf: khusus admin.
+	a.registerPengguna(mux)
+
+	// Portal member: khusus member.
+	a.registerPortal(mux)
+
+	// Akun saya: ganti kata sandi, terbuka untuk semua peran.
+	a.registerAkun(mux)
 }
 
 // withDB memastikan database dapat dijangkau sebelum handler dijalankan,

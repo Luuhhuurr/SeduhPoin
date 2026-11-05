@@ -28,6 +28,8 @@ var ErrPoinSudahTerpakai = errors.New("poin yang diperoleh dari transaksi ini su
 type DataSimpanTransaksi struct {
 	CabangID          int64
 	MemberID          *int64
+	PenggunaID        *int64 // kasir yang memproses penjualan (nil untuk data lama)
+	KasirNama         string // snapshot nama kasir saat transaksi disimpan
 	Tanggal           time.Time
 	Tingkat           string
 	Pengali           float64
@@ -57,12 +59,12 @@ func (s *Store) SimpanTransaksi(ctx context.Context, d DataSimpanTransaksi) (int
 
 	kodeSementara := fmt.Sprintf("TMP-%d", time.Now().UnixNano())
 	res, err := tx.ExecContext(ctx, `
-		INSERT INTO transaksi (kode, cabang_id, member_id, tanggal_transaksi,
-		                       tingkat_saat_transaksi, pengali_saat_transaksi,
+		INSERT INTO transaksi (kode, cabang_id, member_id, pengguna_id, kasir_nama,
+		                       tanggal_transaksi, tingkat_saat_transaksi, pengali_saat_transaksi,
 		                       subtotal, total_setelah_promo, poin_ditukar,
 		                       total_bayar, voucher_kode, status, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SELESAI', ?)`,
-		kodeSementara, d.CabangID, d.MemberID, d.Tanggal,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SELESAI', ?)`,
+		kodeSementara, d.CabangID, d.MemberID, d.PenggunaID, d.KasirNama, d.Tanggal,
 		d.Tingkat, d.Pengali, d.Subtotal, d.TotalSetelahPromo, d.PoinDitukar,
 		d.TotalBayar, d.VoucherKode, d.Tanggal)
 	if err != nil {
@@ -346,20 +348,25 @@ func (s *Store) AmbilTransaksi(ctx context.Context, id int64) (models.Transaksi,
 	var t models.Transaksi
 	var memberID sql.NullInt64
 	var memberNama, memberNoHP sql.NullString
+	var penggunaID sql.NullInt64
+	var kasirNama sql.NullString
 	var voucherKode sql.NullString
 	var tanggal, createdAt time.Time
 	var batalAt sql.NullTime
 
 	err := s.DB.QueryRowContext(ctx, `
 		SELECT t.id, t.kode, t.cabang_id, c.nama, t.member_id, m.nama, m.no_hp,
+		       t.pengguna_id, COALESCE(t.kasir_nama, u.nama, '-'),
 		       t.tanggal_transaksi, t.tingkat_saat_transaksi, t.pengali_saat_transaksi,
 		       t.subtotal, t.total_setelah_promo, t.poin_ditukar, t.total_bayar,
 		       t.voucher_kode, t.status, t.created_at, t.batal_at
 		FROM transaksi t
 		JOIN cabang c ON c.id = t.cabang_id
 		LEFT JOIN member m ON m.id = t.member_id
+		LEFT JOIN pengguna u ON u.id = t.pengguna_id
 		WHERE t.id = ?`, id).
 		Scan(&t.ID, &t.Kode, &t.CabangID, &t.CabangNama, &memberID, &memberNama, &memberNoHP,
+			&penggunaID, &kasirNama,
 			&tanggal, &t.TingkatSaatTransaksi, &t.PengaliSaatTransaksi,
 			&t.Subtotal, &t.TotalSetelahPromo, &t.PoinDitukar, &t.TotalBayar,
 			&voucherKode, &t.Status, &createdAt, &batalAt)
@@ -373,6 +380,13 @@ func (s *Store) AmbilTransaksi(ctx context.Context, id int64) (models.Transaksi,
 	t.CreatedAt = createdAt
 	if voucherKode.Valid {
 		t.VoucherKode = voucherKode.String
+	}
+	if penggunaID.Valid {
+		id := penggunaID.Int64
+		t.PenggunaID = &id
+	}
+	if kasirNama.Valid {
+		t.KasirNama = kasirNama.String
 	}
 	if memberID.Valid {
 		id := memberID.Int64
@@ -481,4 +495,50 @@ func (s *Store) DaftarTransaksi(ctx context.Context, dari, sampai *time.Time, ca
 		t.TanggalTransaksi = tanggal
 		return t, err
 	})
+}
+
+// DaftarTransaksiMember mengembalikan transaksi milik satu member saja.
+//
+// Dipakai portal member. Bedanya dengan DaftarTransaksi (milik kasir) adalah
+// query ini dikunci member_id, jadi member hanya bisa melihat transaksinya
+// sendiri.
+func (s *Store) DaftarTransaksiMember(ctx context.Context, memberID int64) ([]models.Transaksi, error) {
+	rows, err := s.Query(ctx, `
+		SELECT t.id, t.kode, t.tanggal_transaksi, t.total_bayar, t.status,
+		       c.nama, COALESCE(m.nama, '-'), COALESCE(m.no_hp, '-')
+		FROM transaksi t
+		JOIN cabang c ON c.id = t.cabang_id
+		LEFT JOIN member m ON m.id = t.member_id
+		WHERE t.member_id = ?
+		ORDER BY t.tanggal_transaksi DESC, t.id DESC`, memberID)
+	if err != nil {
+		return nil, err
+	}
+	return ScanRows(rows, func(r *Rows) (models.Transaksi, error) {
+		var t models.Transaksi
+		var tanggal time.Time
+		err := r.Scan(&t.ID, &t.Kode, &tanggal, &t.TotalBayar, &t.Status,
+			&t.CabangNama, &t.MemberNama, &t.MemberNoHP)
+		t.TanggalTransaksi = tanggal
+		return t, err
+	})
+}
+
+// AmbilTransaksiMilikMember mengambil satu transaksi milik member tertentu.
+//
+// Bila transaksi itu bukan miliknya, ErrTransaksiTidakDitemukan dikembalikan
+// — sama seperti transaksi yang memang tidak ada. Dengan begitu member tidak
+// bisa menebak keberadaan transaksi orang lain hanya dengan mengubah angka
+// pada alamat URL.
+func (s *Store) AmbilTransaksiMilikMember(ctx context.Context, memberID, transaksiID int64) (models.Transaksi, error) {
+	var ada int
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM transaksi WHERE id = ? AND member_id = ?`, transaksiID, memberID).Scan(&ada)
+	if err != nil {
+		return models.Transaksi{}, err
+	}
+	if ada == 0 {
+		return models.Transaksi{}, ErrTransaksiTidakDitemukan
+	}
+	return s.AmbilTransaksi(ctx, transaksiID)
 }

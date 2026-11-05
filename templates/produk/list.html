@@ -14,7 +14,9 @@
       </select>
       <button type="submit" class="tombol">Cari</button>
     </form>
+    {{if .Identitas.Boleh "ADMIN"}}
     <a href="/produk/tambah" class="tombol tombol-krem">+ Tambah Produk</a>
+    {{end}}
   </div>
 
   <div class="tabel-bungkus">
@@ -38,7 +40,9 @@
           <td class="kanan">
             <span class="aksi">
               <a href="/produk/{{.ID}}" class="tautan-aksi">detail</a>
+              {{if $.Identitas.Boleh "ADMIN"}}
               <a href="/produk/{{.ID}}/edit" class="tautan-aksi">ubah</a>
+              {{end}}
             </span>
           </td>
         </tr>

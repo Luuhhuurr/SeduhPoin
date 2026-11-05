@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"seduhpoin/internal/auth"
 	"seduhpoin/internal/calc"
 	"seduhpoin/internal/format"
 	"seduhpoin/internal/models"
@@ -21,14 +22,19 @@ type memberRow struct {
 }
 
 // registerMember mendaftarkan rute CRUD member.
+//
+// Admin mengelola data member (termasuk-given kata sandi awal dan reset
+// kata sandi); kasir hanya membaca daftar dan detail member supaya bisa
+// mengenali pelanggan saatmelayani transaksi.
 func (a *App) registerMember(mux *http.ServeMux) {
-	mux.HandleFunc("GET /member", a.withDB(a.daftarMember))
-	mux.HandleFunc("GET /member/tambah", a.withDB(a.formMember))
-	mux.HandleFunc("POST /member/tambah", a.withDB(a.simpanMember))
-	mux.HandleFunc("GET /member/{id}", a.withDB(a.detailMember))
-	mux.HandleFunc("GET /member/{id}/edit", a.withDB(a.formMember))
-	mux.HandleFunc("POST /member/{id}/edit", a.withDB(a.simpanMember))
-	mux.HandleFunc("POST /member/{id}/hapus", a.withDB(a.hapusMember))
+	mux.HandleFunc("GET /member", a.akses(peranStaff, a.daftarMember))
+	mux.HandleFunc("GET /member/{id}", a.akses(peranStaff, a.detailMember))
+	mux.HandleFunc("GET /member/tambah", a.akses(peranAdmin, a.formMember))
+	mux.HandleFunc("POST /member/tambah", a.akses(peranAdmin, a.simpanMember))
+	mux.HandleFunc("GET /member/{id}/edit", a.akses(peranAdmin, a.formMember))
+	mux.HandleFunc("POST /member/{id}/edit", a.akses(peranAdmin, a.simpanMember))
+	mux.HandleFunc("POST /member/{id}/hapus", a.akses(peranAdmin, a.hapusMember))
+	mux.HandleFunc("POST /member/{id}/sandi", a.akses(peranAdmin, a.resetSandiMember))
 }
 
 // daftarMember menampilkan daftar member dengan tingkat dan belanja 3 bulan.
@@ -61,7 +67,7 @@ func (a *App) daftarMember(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	a.render(w, "member/list.html", View{
+	a.render(w, r, "member/list.html", View{
 		Title: "Data Member",
 		Menu:  "member",
 		Error: ambilError(r),
@@ -92,13 +98,13 @@ func (a *App) formMember(w http.ResponseWriter, r *http.Request) {
 	} else {
 		m.TglDaftar = format.HariIni()
 	}
-	// Nomor HP dapat diisi dari halaman transaksi (?no_hp=...): kasir mengetik
+	// Nomor HP dapat diisi dari halaman transaksi (?no_hp=...): admin mengetik
 	// nomor HP di form transaksi, lalu diarahkan ke sini untuk mendaftar.
 	if raw := r.URL.Query().Get("no_hp"); raw != "" && mode == "tambah" {
 		m.NoHP = raw
 	}
 
-	a.render(w, "member/form.html", View{
+	a.render(w, r, "member/form.html", View{
 		Title: "Form Member",
 		Menu:  "member",
 		Error: ambilError(r),
@@ -173,6 +179,25 @@ func (a *App) simpanMember(w http.ResponseWriter, r *http.Request) {
 			pesanError(w, http.StatusInternalServerError, "Gagal menyimpan member", err.Error())
 			return
 		}
+		// Kata sandi awal (opsional): kalau diisi, member langsung punya
+		// akun login portal. Kalau dikosongkan, member belum bisa login
+		// sampai admin mengaturnya dari halaman detail member.
+		if sandi := strings.TrimSpace(r.FormValue("sandi")); sandi != "" {
+			if !auth.PasswordValid(sandi) {
+				redirect(w, r, "/member/"+strconv.FormatInt(id, 10),
+					"Member tersimpan, tetapi kata sandi minimal "+itoa(auth.PanjangMinimumSandi)+" karakter.")
+				return
+			}
+			hash, err := auth.HashPassword(sandi)
+			if err != nil {
+				pesanError(w, http.StatusInternalServerError, "Gagal memproses kata sandi", err.Error())
+				return
+			}
+			if err := a.Store.SetPasswordMember(r.Context(), id, hash); err != nil {
+				pesanError(w, http.StatusInternalServerError, "Gagal menyimpan kata sandi member", err.Error())
+				return
+			}
+		}
 		redirect(w, r, "/member/"+strconv.FormatInt(id, 10), "")
 		return
 	}
@@ -203,7 +228,7 @@ func (a *App) detailMember(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat data belanja member", err.Error())
 		return
 	}
-	a.render(w, "member/detail.html", View{
+	a.render(w, r, "member/detail.html", View{
 		Title: "Detail Member",
 		Menu:  "member",
 		Data: map[string]any{
@@ -229,6 +254,39 @@ func (a *App) hapusMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, "/member", "")
+}
+
+// resetSandiMember memasang atau mengganti kata sandi login seorang member.
+//
+// Kasir/admin boleh mengatur ulang sandi member (misalnya member lupa
+// sandinya). Member yang sedang login ikut kehilangan sesi aktifnya karena
+// kata sandinya berubah.
+func (a *App) resetSandiMember(w http.ResponseWriter, r *http.Request) {
+	id, err := idDariPath(r)
+	if err != nil {
+		pesanError(w, http.StatusBadRequest, "ID member tidak valid", err.Error())
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		pesanError(w, http.StatusBadRequest, "Data form tidak valid", err.Error())
+		return
+	}
+	sandi := strings.TrimSpace(r.FormValue("sandi"))
+	if !auth.PasswordValid(sandi) {
+		redirect(w, r, "/member/"+strconv.FormatInt(id, 10),
+			"Kata sandi minimal "+itoa(auth.PanjangMinimumSandi)+" karakter.")
+		return
+	}
+	hash, err := auth.HashPassword(sandi)
+	if err != nil {
+		pesanError(w, http.StatusInternalServerError, "Gagal memproses kata sandi", err.Error())
+		return
+	}
+	if err := a.Store.SetPasswordMember(r.Context(), id, hash); err != nil {
+		pesanError(w, http.StatusInternalServerError, "Gagal menyimpan kata sandi member", err.Error())
+		return
+	}
+	redirectSukses(w, r, "/member/"+strconv.FormatInt(id, 10), "Kata sandi member berhasil diganti.")
 }
 
 // hanyaAngka memeriksa apakah seluruh karakter string berupa angka.

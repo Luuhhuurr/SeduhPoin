@@ -53,9 +53,9 @@ type hasilTransaksi struct {
 
 // registerTransaksi mendaftarkan rute transaksi.
 func (a *App) registerTransaksi(mux *http.ServeMux) {
-	mux.HandleFunc("GET /transaksi", a.withDB(a.formTransaksiBaru))
-	mux.HandleFunc("POST /transaksi/proses", a.withDB(a.prosesTransaksi))
-	mux.HandleFunc("GET /transaksi/struk/{id}", a.withDB(a.strukTransaksi))
+	mux.HandleFunc("GET /transaksi", a.akses(peranStaff, a.formTransaksiBaru))
+	mux.HandleFunc("POST /transaksi/proses", a.akses(peranStaff, a.prosesTransaksi))
+	mux.HandleFunc("GET /transaksi/struk/{id}", a.akses(peranStaff, a.strukTransaksi))
 }
 
 // formTransaksiBaru menampilkan form transaksi kosong.
@@ -109,9 +109,14 @@ func (a *App) prosesTransaksi(w http.ResponseWriter, r *http.Request) {
 	// Seluruh efek transaksi (header, item, rincian promo, pemakaian voucher,
 	// penukaran poin, dan pembuatan lot poin baru) disimpan secara atomik:
 	// bila salah satu gagal, semuanya dibatalkan (rollback).
+	// Kasir yang memproses penjualan dicatat pada header transaksi, sehingga
+	// struk dan laporan bisa menyebut siapa yang melayani member.
+	identitas := identitasDari(r)
 	data := store.DataSimpanTransaksi{
 		CabangID:          f.CabangID,
 		MemberID:          hasil.MemberID,
+		PenggunaID:        &identitas.PenggunaID,
+		KasirNama:         identitas.Nama,
 		Tanggal:           format.WIB(),
 		Tingkat:           hasil.Tingkat,
 		Pengali:           hasil.Pengali,
@@ -375,7 +380,7 @@ func (a *App) renderFormTransaksi(w http.ResponseWriter, r *http.Request, f form
 		}
 	}
 
-	a.render(w, "transaksi/form.html", View{
+	a.render(w, r, "transaksi/form.html", View{
 		Title: "Transaksi Baru",
 		Menu:  "transaksi",
 		Error: pesan,
@@ -402,7 +407,7 @@ func (a *App) strukTransaksi(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusNotFound, "Transaksi tidak ditemukan", err.Error())
 		return
 	}
-	a.render(w, "transaksi/struk.html", View{
+	a.render(w, r, "transaksi/struk.html", View{
 		Title: "Struk " + transaksi.Kode,
 		Menu:  "transaksi",
 		Data: map[string]any{

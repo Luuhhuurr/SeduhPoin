@@ -1,0 +1,57 @@
+{{define "login"}}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masuk &middot; SeduhPoin</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="halaman-login">
+  <div class="kotak-login">
+    <div class="login-kepala">
+      <span class="logo">SeduhPoin</span>
+      <p class="login-sub">Kedai Kopi Seduh &middot; POS + Loyalty Program</p>
+    </div>
+
+    {{if .Error}}
+    <div class="pesan pesan-error">{{.Error}}</div>
+    {{end}}
+
+    <form method="post" action="/login" class="formulir">
+      {{if .Next}}
+      <input type="hidden" name="next" value="{{.Next}}">
+      {{end}}
+
+      <div class="baris-form">
+        <label for="jenis">Jenis Akun</label>
+        <select id="jenis" name="jenis">
+          <option value="PENGGUNA">Staf (Admin / Kasir)</option>
+          <option value="MEMBER">Member (Pelanggan)</option>
+        </select>
+        <p class="petunjuk">Staf memakai username. Member memakai nomor HP terdaftar.</p>
+      </div>
+
+      <div class="baris-form">
+        <label for="identitas">Username / Nomor HP</label>
+        <input type="text" id="identitas" name="identitas" autocomplete="username" required autofocus>
+      </div>
+
+      <div class="baris-form">
+        <label for="sandi">Kata Sandi</label>
+        <input type="password" id="sandi" name="sandi" autocomplete="current-password" required>
+      </div>
+
+      <button type="submit" class="tombol tombol-krem tombol-lebar">Masuk</button>
+    </form>
+
+    <div class="login-catatan">
+      <p><b>Akun demo</b></p>
+      <p>Admin: <code>admin</code> / <code>admin123</code> &middot; Kasir: <code>kasir</code> / <code>kasir123</code></p>
+      <p>Member: <code>081234567890</code> / <code>member123</code></p>
+      <p class="login-kecil">Akun member dibuat oleh admin saat pendaftaran member baru.</p>
+    </div>
+  </div>
+</body>
+</html>
+{{end}}

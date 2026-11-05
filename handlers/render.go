@@ -18,6 +18,13 @@ type View struct {
 	Menu  string // menu sidebar yang sedang aktif
 	Error string // pesan error untuk ditampilkan di halaman
 	Data  any    // data khusus halaman
+
+	// Identitas adalah identitas pengguna yang sedang login.
+	//
+	// Diisi otomatis oleh render() dari context request, sehingga setiap
+	// handler tidak perlu mengirimnya sendiri dan tidak ada halaman yang
+	// bisa "lupa" menampilkan nama pengguna.
+	Identitas Identitas
 }
 
 // templateFuncs berisi helper yang boleh dipakai di dalam template.
@@ -37,9 +44,11 @@ var templateFuncs = template.FuncMap{
 	"lower":             strings.ToLower,
 	"upper":             strings.ToUpper,
 	"statusBadge":       statusBadge,
+	"labelPeran":        LabelPeran,
 	"sisaKuota":         func(kuota, terpakai int) int { return kuota - terpakai },
 	"sub":               func(a, b int64) int64 { return a - b },
 	"nilaiPoin":         func(p int64) string { return format.Rupiah(p * calc.NilaiTukarPoin) },
+	"pengali":           calc.PengaliTingkat,
 	"now":               func() string { return format.Tanggal(format.WIB()) },
 }
 
@@ -96,7 +105,13 @@ var daftarTemplate = []string{
 // Konvensi template: layout.html mendefinisikan {{define "layout"}}, sedangkan
 // setiap file halaman hanya mendefinisikan {{define "content"}} yang berisi
 // isi halaman. Template dieksekusi lewat ExecuteTemplate(w, "layout", view).
-func (a *App) render(w http.ResponseWriter, page string, view View) {
+//
+// Identitas pengguna yang sedang login diambil dari context request, sehingga
+// template bisa memakai {{if .Identitas.Boleh "ADMIN"}} tanpa setiap handler
+// harus mengirim datanya sendiri.
+func (a *App) render(w http.ResponseWriter, r *http.Request, page string, view View) {
+	view.Identitas = identitasDari(r)
+
 	files := append(append([]string{}, daftarTemplate...), "templates/"+page)
 
 	tmpl, err := template.New("base").Funcs(templateFuncs).ParseFiles(files...)
@@ -106,6 +121,24 @@ func (a *App) render(w http.ResponseWriter, page string, view View) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.ExecuteTemplate(w, "layout", view); err != nil {
+		http.Error(w, "Gagal merender halaman: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// renderMandiri merender satu berkas template tanpa layout, header, sidebar,
+// dan footer.
+//
+// Dipakai untuk halaman login: halaman itu harus tampil sebelum pengguna
+// login, jadi tidak boleh memakai kerangka aplikasi (yang di dalamnya ada
+// tombol logout dan nama pengguna).
+func (a *App) renderMandiri(w http.ResponseWriter, fileTemplate, namaTemplate string, data any) {
+	tmpl, err := template.New("mandiri").Funcs(templateFuncs).ParseFiles(fileTemplate)
+	if err != nil {
+		http.Error(w, "Gagal memuat template: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := tmpl.ExecuteTemplate(w, namaTemplate, data); err != nil {
 		http.Error(w, "Gagal merender halaman: "+err.Error(), http.StatusInternalServerError)
 	}
 }

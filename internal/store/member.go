@@ -17,7 +17,9 @@ var ErrMemberTidakDitemukan = errors.New("member dengan nomor HP tersebut tidak 
 // Soft delete: member yang dihapus ditandai deleted_at dan disembunyikan dari
 // daftar, tetapi tetap tertaut dari transaksi lamanya.
 func (s *Store) DaftarMember(ctx context.Context, keyword string) ([]models.Member, error) {
-	query := `SELECT id, no_hp, nama, tgl_daftar, deleted_at FROM member WHERE deleted_at IS NULL`
+	query := `SELECT id, no_hp, nama, tgl_daftar, deleted_at,
+	                 (password_hash IS NOT NULL) AS punya_akun
+	          FROM member WHERE deleted_at IS NULL`
 	args := []any{}
 	// Pencarian mencocokkan nomor HP maupun nama.
 	if keyword != "" {
@@ -34,7 +36,7 @@ func (s *Store) DaftarMember(ctx context.Context, keyword string) ([]models.Memb
 	return ScanRows(rows, func(r *Rows) (models.Member, error) {
 		var m models.Member
 		var deleted sql.NullTime
-		err := r.Scan(&m.ID, &m.NoHP, &m.Nama, &m.TglDaftar, &deleted)
+		err := r.Scan(&m.ID, &m.NoHP, &m.Nama, &m.TglDaftar, &deleted, &m.PunyaAkun)
 		if deleted.Valid {
 			t := deleted.Time
 			m.DeletedAt = &t
@@ -50,8 +52,10 @@ func (s *Store) AmbilMember(ctx context.Context, id int64) (models.Member, error
 	var m models.Member
 	var deleted sql.NullTime
 	err := s.DB.QueryRowContext(ctx,
-		`SELECT id, no_hp, nama, tgl_daftar, deleted_at FROM member WHERE id = ?`, id).
-		Scan(&m.ID, &m.NoHP, &m.Nama, &m.TglDaftar, &deleted)
+		`SELECT id, no_hp, nama, tgl_daftar, deleted_at,
+		        (password_hash IS NOT NULL) AS punya_akun
+		 FROM member WHERE id = ?`, id).
+		Scan(&m.ID, &m.NoHP, &m.Nama, &m.TglDaftar, &deleted, &m.PunyaAkun)
 	if deleted.Valid {
 		t := deleted.Time
 		m.DeletedAt = &t

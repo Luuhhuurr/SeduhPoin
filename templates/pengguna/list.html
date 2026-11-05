@@ -1,0 +1,53 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Kelola Akun Pengguna</h1>
+  <p class="deskripsi">
+    Daftar akun staf (admin dan kasir). Hanya admin yang boleh membuka halaman ini;
+    nama menu di sidebar bukan pengaman, pemeriksaan peran dilakukan di server.
+  </p>
+
+  <div class="baris-alat">
+    <a href="/pengguna/tambah" class="tombol tombol-krem">+ Tambah Akun</a>
+  </div>
+
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Nama</th>
+          <th>Peran</th>
+          <th>Status</th>
+          <th>Login Terakhir</th>
+          <th class="kanan">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Daftar}}
+        <tr>
+          <td><code>{{.Username}}</code></td>
+          <td><a href="/pengguna/{{.ID}}">{{.Nama}}</a></td>
+          <td>{{labelPeran .Role}}</td>
+          <td>
+            {{if .Aktif}}
+              <span class="badge badge-ok">Aktif</span>
+            {{else}}
+              <span class="badge badge-grey">Nonaktif</span>
+            {{end}}
+          </td>
+          <td>{{if .LastLoginAt}}{{tanggalSingkat .LastLoginAt}}{{else}}Belum pernah{{end}}</td>
+          <td class="kanan">
+            <span class="aksi">
+              <a href="/pengguna/{{.ID}}" class="tautan-aksi">detail</a>
+              <a href="/pengguna/{{.ID}}/edit" class="tautan-aksi">ubah</a>
+            </span>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="kosong">Belum ada akun staf.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

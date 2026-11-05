@@ -1,0 +1,141 @@
+{{define "content"}}
+<div class="halaman">
+  <h1 class="judul-halaman">Halo, {{.Data.Identitas.Nama}}</h1>
+  <p class="deskripsi">
+    Ringkasan poin dan aktivitas loyalty Anda.
+    Poin hanya berlaku 6 bulan sejak diperoleh dan bernilai Rp1.000 per poin.
+  </p>
+
+  <div class="saldo-poin" style="margin-bottom:16px">
+    <div>
+      <div class="label">Saldo Poin Aktif</div>
+      <div class="angka-besar">{{.Data.Saldo}} poin</div>
+      <div class="ket">setara {{rupiah .Data.NilaiPoin}}</div>
+    </div>
+    <div style="margin-left:auto;text-align:right">
+      <div class="label">Tingkat Saat Ini</div>
+      <div style="margin:8px 0 6px">
+        {{if eq .Data.Tingkat "GOLD"}}
+          <span class="badge badge-gold">GOLD</span>
+        {{else}}
+          <span class="badge badge-silver">SILVER</span>
+        {{end}}
+      </div>
+      <div class="ket">pengali poin x{{pengali .Data.Tingkat}}</div>
+    </div>
+  </div>
+
+  <div class="grid-kartu" style="margin-bottom:6px">
+    <div class="kartu">
+      <p class="kartu-judul">Belanja 3 Bulan</p>
+      <p class="kartu-nilai kecil">{{rupiah .Data.Belanja}}</p>
+      <p class="kartu-tautan">dasar perhitungan tingkat member</p>
+    </div>
+    <div class="kartu">
+      <p class="kartu-judul">Jumlah Transaksi</p>
+      <p class="kartu-nilai kecil">{{.Data.JumlahTxn}}</p>
+      <p class="kartu-tautan">riwayat transaksi Anda</p>
+    </div>
+    <div class="kartu">
+      <p class="kartu-judul">Jumlah Lot</p>
+      <p class="kartu-nilai kecil">{{len .Data.Lots}}</p>
+      <p class="kartu-tautan">lot poin tercatat</p>
+    </div>
+  </div>
+
+  <h2 class="judul-bagian">Mutasi Poin Terakhir</h2>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Waktu</th>
+          <th>Tipe</th>
+          <th class="kanan">Jumlah</th>
+          <th>Keterangan</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Mutasi}}
+        <tr>
+          <td>{{tanggal .CreatedAt}}</td>
+          <td>
+            {{if eq .Tipe "PEROLEHAN"}}
+              <span class="badge badge-ok">PEROLEHAN</span>
+            {{else if eq .Tipe "PENUKARAN"}}
+              <span class="badge badge-batal">PENUKARAN</span>
+            {{else if eq .Tipe "KEMBALI"}}
+              <span class="badge badge-silver">KEMBALI</span>
+            {{else}}
+              <span class="badge badge-grey">TARIK</span>
+            {{end}}
+          </td>
+          <td class="kanan">{{.Jumlah}}</td>
+          <td>{{.Keterangan}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="kosong">Belum ada mutasi poin.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="judul-bagian">Transaksi Terakhir</h2>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Tanggal</th>
+          <th>Cabang</th>
+          <th class="kanan">Total</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Transaksi}}
+        <tr>
+          <td><a href="/portal/transaksi/{{.ID}}">{{.Kode}}</a></td>
+          <td>{{tanggal .TanggalTransaksi}}</td>
+          <td>{{.CabangNama}}</td>
+          <td class="kanan">{{rupiah .TotalBayar}}</td>
+          <td>{{statusBadge .Status}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="kosong">Belum ada transaksi.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="judul-bagian">Promo Sedang Berjalan</h2>
+  <div class="tabel-bungkus">
+    <table class="tabel">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Nama</th>
+          <th>Jenis</th>
+          <th>Berlaku Sampai</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Data.Promo}}
+        <tr>
+          <td><code>{{.Kode}}</code></td>
+          <td>{{.Nama}}</td>
+          <td>{{.Jenis}}</td>
+          <td>{{tanggalSingkat .TglSelesai}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="kosong">Belum ada promo yang sedang berjalan.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tombol-aksi">
+    <a href="/portal/transaksi" class="tombol">Riwayat Transaksi Saya</a>
+    <a href="/portal/promo" class="tombol tombol-abu">Lihat Semua Promo</a>
+  </div>
+</div>
+{{end}}

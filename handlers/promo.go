@@ -12,15 +12,18 @@ import (
 )
 
 // registerPromo mendaftarkan rute CRUD promo dan voucher.
+//
+// Admin mengelola promo (tambah, ubah, status, hapus); kasir hanya membaca
+// daftar promo dan voucher karena penerapannya terjadi di form transaksi.
 func (a *App) registerPromo(mux *http.ServeMux) {
-	mux.HandleFunc("GET /promo", a.withDB(a.daftarPromo))
-	mux.HandleFunc("GET /promo/tambah", a.withDB(a.formPromo))
-	mux.HandleFunc("POST /promo/tambah", a.withDB(a.simpanPromo))
-	mux.HandleFunc("GET /promo/{id}", a.withDB(a.detailPromo))
-	mux.HandleFunc("GET /promo/{id}/edit", a.withDB(a.formPromo))
-	mux.HandleFunc("POST /promo/{id}/edit", a.withDB(a.simpanPromo))
-	mux.HandleFunc("POST /promo/{id}/status", a.withDB(a.ubahStatusPromo))
-	mux.HandleFunc("POST /promo/{id}/hapus", a.withDB(a.hapusPromo))
+	mux.HandleFunc("GET /promo", a.akses(peranStaff, a.daftarPromo))
+	mux.HandleFunc("GET /promo/{id}", a.akses(peranStaff, a.detailPromo))
+	mux.HandleFunc("GET /promo/tambah", a.akses(peranAdmin, a.formPromo))
+	mux.HandleFunc("POST /promo/tambah", a.akses(peranAdmin, a.simpanPromo))
+	mux.HandleFunc("GET /promo/{id}/edit", a.akses(peranAdmin, a.formPromo))
+	mux.HandleFunc("POST /promo/{id}/edit", a.akses(peranAdmin, a.simpanPromo))
+	mux.HandleFunc("POST /promo/{id}/status", a.akses(peranAdmin, a.ubahStatusPromo))
+	mux.HandleFunc("POST /promo/{id}/hapus", a.akses(peranAdmin, a.hapusPromo))
 }
 
 // daftarPromo menampilkan daftar promo dan daftar voucher.
@@ -46,7 +49,7 @@ func (a *App) daftarPromo(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memuat daftar cabang", err.Error())
 		return
 	}
-	a.render(w, "promo/list.html", View{
+	a.render(w, r, "promo/list.html", View{
 		Title: "Promo & Voucher",
 		Menu:  "promo",
 		Error: ambilError(r),
@@ -107,7 +110,7 @@ func (a *App) formPromo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "promo/form.html", View{
+	a.render(w, r, "promo/form.html", View{
 		Title: "Form Promo",
 		Menu:  "promo",
 		Error: ambilError(r),
@@ -331,7 +334,7 @@ func (a *App) detailPromo(w http.ResponseWriter, r *http.Request) {
 		pesanError(w, http.StatusInternalServerError, "Gagal memeriksa pemakaian promo", err.Error())
 		return
 	}
-	a.render(w, "promo/detail.html", View{
+	a.render(w, r, "promo/detail.html", View{
 		Title: "Detail Promo",
 		Menu:  "promo",
 		Data: map[string]any{

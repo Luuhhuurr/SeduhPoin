@@ -8,7 +8,9 @@
       <input class="cari" type="text" name="q" value="{{.Data.Keyword}}" placeholder="Cari nomor HP atau nama member">
       <button type="submit" class="tombol">Cari</button>
     </form>
+    {{if .Identitas.Boleh "ADMIN"}}
     <a href="/member/tambah" class="tombol tombol-krem">+ Tambah Member</a>
+    {{end}}
   </div>
 
   <div class="tabel-bungkus">
@@ -19,6 +21,7 @@
           <th>Nama</th>
           <th>Tgl Daftar</th>
           <th>Tingkat</th>
+          <th>Login</th>
           <th class="kanan">Belanja 3 Bulan</th>
           <th class="kanan">Aksi</th>
         </tr>
@@ -36,16 +39,25 @@
               <span class="badge badge-silver">SILVER</span>
             {{end}}
           </td>
+          <td>
+            {{if .Member.PunyaAkun}}
+              <span class="badge badge-ok">Aktif</span>
+            {{else}}
+              <span class="badge badge-grey">Belum</span>
+            {{end}}
+          </td>
           <td class="kanan">{{rupiah .Belanja}}</td>
           <td class="kanan">
             <span class="aksi">
               <a href="/member/{{.Member.ID}}" class="tautan-aksi">detail</a>
+              {{if $.Identitas.Boleh "ADMIN"}}
               <a href="/member/{{.Member.ID}}/edit" class="tautan-aksi">ubah</a>
+              {{end}}
             </span>
           </td>
         </tr>
         {{else}}
-        <tr><td colspan="6" class="kosong">Belum ada member terdaftar.</td></tr>
+        <tr><td colspan="7" class="kosong">Belum ada member terdaftar.</td></tr>
         {{end}}
       </tbody>
     </table>
